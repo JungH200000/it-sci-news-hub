@@ -43,16 +43,16 @@
 
 ## Phase 4. **Express 백엔드(API) 설계/구현**
 
-- [ ] **OpenAPI 스펙** `/docs/openapi.yaml` 초안 작성 + **Swagger UI** 연결
-- [ ] 엔드포인트
-  - `GET /articles/daily?date=YYYY-MM-DD&category=&page=&size=` _(ref: PRD-12-1\~2)_
-  - `GET /articles/weekly?week=YYYY-MM-N&category=&page=&size=` _(ref: PRD-12-3)_
-  - `GET /search?q=&cat=&limit=` → **관련도→최신**, **섹션별 상한** 보장 _(ref: PRD-8-4\~6, PRD-16-2)_
+- [O] **OpenAPI 스펙** `/docs/openapi.yaml` 초안 작성 + **Swagger UI** 연결 – 3개 엔드포인트 및 사이드바 보조 API 정의, 표준 에러 스키마 포함
+- [O] 엔드포인트
+  - `GET /articles/daily?date=YYYY-MM-DD&category=&page=&size=` _(ref: PRD-12-1\~2)_ – 컨트롤러/서비스/레포지토리 분리(`services/api/src/...`)
+  - `GET /articles/weekly?week=YYYY-MM-N&category=&page=&size=` _(ref: PRD-12-3)_ – 주차 필터/페이지네이션 적용
+  - `GET /search?q=&cat=&limit=` → **관련도→최신**, **섹션별 상한** 보장 _(ref: PRD-8-4\~6, PRD-16-2)_ – `search_unified` 호출로 kind별 50건 제한 유지
 
-- [ ] 미들웨어/운영: helmet, cors, compression, **express-rate-limit**, **pino-http**, 에러 핸들러, ETag/Cache-Control(검색은 no-store 권장)
-- [ ] 레이어 분리: Controller(HTTP) ↔ Service(정렬·비즈 규칙) ↔ Repository(SQL/RPC 호출)
-- [ ] 헬스체크 `/healthz`와 상태 코드 표준화
-- DoD: 샘플 데이터로 3개 엔드포인트 정상 응답 + Swagger UI 확인
+- [O] 미들웨어/운영: helmet, cors, compression, **express-rate-limit**, **pino-http**, 에러 핸들러, ETag/Cache-Control(검색은 no-store 권장) – `services/api/src/app.js`에서 공통 미들웨어 구성
+- [O] 레이어 분리: Controller(HTTP) ↔ Service(정렬·비즈 규칙) ↔ Repository(SQL/RPC 호출) – 각각 `controllers/`, `services/`, `repositories/` 디렉터리로 구조화
+- [O] 헬스체크 `/healthz`와 상태 코드 표준화 – `createApp()` 내 `/healthz` 유지, 에러 미들웨어 JSON 응답 일원화
+- DoD: 샘플 데이터로 3개 엔드포인트 정상 응답 + Swagger UI 확인 – 로컬 DB 연결 시 `npm --workspace services/api run dev` 후 `/api/...` 호출 및 `/docs/openapi.yaml` 기반 Swagger UI 연동 예정
 
 ## Phase 5. **데이터 수집 배치(ingest) 설계/구현**
 
