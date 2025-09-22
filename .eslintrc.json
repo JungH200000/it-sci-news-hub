@@ -8,6 +8,10 @@
   "extends": [
     "eslint:recommended"
   ],
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 2022
+  },
   "ignorePatterns": [
     "dist/**",
     "build/**",
@@ -17,8 +21,12 @@
   "overrides": [
     {
       "files": ["apps/web/**/*"],
-      "extends": ["next/core-web-vitals"]
+      "extends": ["next/core-web-vitals"],
+      "settings": {
+        "next": {
+          "rootDir": ["apps/web"]
+        }
+      }
     }
   ]
 }
-

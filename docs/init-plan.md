@@ -17,20 +17,20 @@
 
 ## Phase 1. 킥오프 & 공통 세팅
 
-- [x] PRD 범위·MVP 스코프 잠금 _(ref: PRD-5, PRD-20)_ – Daily/Weekly 기본 범위와 스케줄·UI·검색 요구 정리 완료
-- [x] `.gitignore`/린터/포매터 명시 _(ref: PRD-13)_ – 루트에 `.gitignore`, `.eslintrc.json`, `.prettierrc` 추가
-- [x] **폴더 스캐폴딩**: `/apps/web`, `/services/api`, `/services/ingest`, `/db/migrations`, `/docs`, `/infra/ci`
-- [x] 환경 변수 스펙 문서화: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `TZ=Asia/Seoul` _(ref: PRD-15-1)_ – `docs/env.md` 작성, 루트 `.env` 사용
-- [x] **DB 마이그레이션 정책만 문서화(실행은 Phase 3)**: 001*tables → 002_indexes → 003_tsv_triggers → 004_views → 005_search_rpc *(ref: PRD-6, PRD-16)\* – `docs/db-migrations.md` 작성
+- [O] PRD 범위·MVP 스코프 잠금 _(ref: PRD-5, PRD-20)_ – Daily/Weekly 기본 범위와 스케줄·UI·검색 요구 정리 완료
+- [O] `.gitignore`/린터/포매터 명시 _(ref: PRD-13)_ – 루트에 `.gitignore`, `.eslintrc.json`, `.prettierrc` 추가
+- [O] **폴더 스캐폴딩**: `/apps/web`, `/services/api`, `/services/ingest`, `/db/migrations`, `/docs`, `/infra/ci`
+- [O] 환경 변수 스펙 문서화: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `TZ=Asia/Seoul` _(ref: PRD-15-1)_ – `docs/env.md` 작성, 루트 `.env` 사용
+- [O] **DB 마이그레이션 정책만 문서화(실행은 Phase 3)**: 001*tables → 002_indexes → 003_tsv_triggers → 004_views → 005_search_rpc *(ref: PRD-6, PRD-16)* – `docs/db-migrations.md` 작성
 - DoD: Next.js dev 서버, **Express `/healthz`** 로컬 기동 확인 – `apps/web`(Next.js) 및 `services/api`(Express) 부트스트랩 완료. `npm run dev:web`, `npm run dev:api`로 기동 검증함.
 
 ## Phase 2. 프론트엔드 **UI 뼈대** (Mock 데이터)
 
-- [ ] 레이아웃: 헤더/탭(“Daily IT/Science / Weekly SciTech”)/사이드바/카드 그리드 _(ref: PRD-9.1-1, PRD-9.1-2)_
-- [ ] Daily 탭: 최근 14일(더미), 카드 10개 + **Load More** UX, 접근성 _(ref: PRD-9.2-1, PRD-9.2-2, PRD-9.5-1\~2, PRD-9.6-1\~3)_
-- [ ] Weekly 탭: 최근 8주(더미), 카드 10개 + Load More _(ref: PRD-9.3-1, PRD-9.3-2)_
-- [ ] 검색 결과: **Daily(14일) / Weekly(전체)** 섹션 분리, 각 10개 기본 + Load More _(ref: PRD-9.4-1, PRD-9.4-2)_
-- [ ] 카드: 제목(새 탭), 요약, 출처, 일시, 카테고리, 썸네일 null-safe _(ref: PRD-12-5, PRD-14-3)_
+- [O] 레이아웃: 헤더/탭(“Daily IT/Science / Weekly SciTech”)/사이드바/카드 그리드 _(ref: PRD-9.1-1, PRD-9.1-2)_ – `apps/web/pages/index.js`, `styles/globals.css`에 블루/화이트 톤 레이아웃 구성
+- [O] Daily 탭: 최근 14일(더미), 카드 10개 + **Load More** UX, 접근성 _(ref: PRD-9.2-1, PRD-9.2-2, PRD-9.5-1\~2, PRD-9.6-1\~3)_ – 더미 데이터와 탭 ARIA 패턴, Load More 포커스 이동 처리
+- [O] Weekly 탭: 최근 8주(더미), 카드 10개 + Load More _(ref: PRD-9.3-1, PRD-9.3-2)_ – 동일 UX로 주간 패널/사이드바 구현
+- [O] 검색 결과: **Daily(14일) / Weekly(전체)** 섹션 분리, 각 10개 기본 + Load More _(ref: PRD-9.4-1, PRD-9.4-2)_ – 검색 폼과 mock 검색 로직, 섹션별 Load More/상태 메시지 적용
+- [O] 카드: 제목(새 탭), 요약, 출처, 일시, 카테고리, 썸네일 null-safe _(ref: PRD-12-5, PRD-14-3)_ – 카드 메타/썸네일 조건 렌더링으로 요구 충족
 - DoD: 더미 JSON으로 라우팅/상태/접근성 포함 **E2E 화면 시연 가능**
 
 ## Phase 3. DB & 검색 기반 준비 (이때 마이그레이션 실행)
