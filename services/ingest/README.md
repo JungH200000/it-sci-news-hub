@@ -2,6 +2,8 @@
 
 2. python 가상 환경 세팅
 
+루트 경로에서
+
 ```WSL
 python -m venv .venv
 source .venv/bin/activate
