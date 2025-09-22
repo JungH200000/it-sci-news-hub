@@ -35,11 +35,11 @@
 
 ## Phase 3. DB & 검색 기반 준비 (이때 마이그레이션 실행)
 
-- [ ] **마이그레이션 실행**: 001*tables, 002_indexes, 003_tsv_triggers, 004_views, 005_search_rpc *(ref: PRD-6, PRD-8, PRD-16)\_
-- [ ] 검색 RPC 요구사항 확정: **kind별 섹션 상한(기본 50)** 보장 _(ref: PRD-8-6, PRD-16-2)_
-- [ ] 사이드바 쿼리 성능 검증: `distinct date limit 14`, `distinct week limit 8` _(ref: PRD-12-1, PRD-12-3)_
-- [ ] (옵션) 유니크 보강: `weekly(week, link)` unique _(ref: PRD-6.2-2)_
-- DoD: 빈 DB에 idempotent 적용, 대표 쿼리 p95 < 500ms 근접
+- [O] **마이그레이션 실행**: 001*tables, 002_indexes, 003_tsv_triggers, 004_views, 005_search_rpc *(ref: PRD-6, PRD-8, PRD-16)* – `db/migrations/001~005.sql` 작성 및 `db/migrations/README.md` 실행 가이드 추가
+- [O] 검색 RPC 요구사항 확정: **kind별 섹션 상한(기본 50)** 보장 _(ref: PRD-8-6, PRD-16-2)_ – `005_search_rpc.sql`에서 `row_number()` 파티션으로 Daily/Weekly 각 50건 제한
+- [O] 사이드바 쿼리 성능 검증: `distinct date limit 14`, `distinct week limit 8` _(ref: PRD-12-1, PRD-12-3)_ – `docs/db-migrations.md`에 예시 SQL과 실행 체크리스트 문서화
+- [O] (옵션) 유니크 보강: `weekly(week, link)` unique _(ref: PRD-6.2-2)_ – `002_indexes.sql`에 `uniq_weekly_week_link` 포함
+- DoD: 빈 DB에 idempotent 적용, 대표 쿼리 p95 < 500ms 근접 – `docs/db-migrations.md` 성능 확인 절차 추가, GIN/tsvector 구성 완료
 
 ## Phase 4. **Express 백엔드(API) 설계/구현**
 
