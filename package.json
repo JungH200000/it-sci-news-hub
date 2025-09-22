@@ -1,0 +1,20 @@
+{
+  "name": "it-sci-news-hub",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:api": "npm --workspace services/api run dev",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier -w ."
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5",
+    "prettier": "^3.3.3"
+  }
+}
+
