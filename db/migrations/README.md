@@ -132,3 +132,18 @@ create or replace function public.search_unified(
   - 검색어가 없으면 결과 없음
   - `cat` 있으면 해당 카테고리만
   - daily는 기본적으로 최근 14일만 검색
+
+### 전체 요약
+
+1. 001_tables.sql → 기사 상자(daily, weekly 테이블) 만들기
+2. 002_indexes.sql → 빠른 검색용 목차/색인 달기
+3. 003_tsv_triggers.sql → 검색 전용 사본(tsv) 자동 생성하기
+4. 004_views.sql → daily+weekly 합친 가상 테이블(unified_articles)
+5. 005_search_rpc.sql → 검색 함수(search_unified) 제공
+
+👉 그림으로 비유하면:
+상자를 만들고(001)
+목차를 붙이고(002)
+검색용 사본을 만들고(003)
+두 상자를 합쳐 보여주는 창문을 만들고(004)
+검색 API를 제공한다(005).
