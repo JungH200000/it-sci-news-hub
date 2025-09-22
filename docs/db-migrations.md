@@ -42,9 +42,11 @@ Notes
   - `trg_daily_tsv_fn`, `trg_weekly_tsv_fn`가 `tsvector` 갱신.
 - `unified_articles` 뷰 (PRD-16)
   - Daily/Weekly를 단일 결과셋으로 제공.
+  - 제공 필드: `kind`, `date_key`, `week_key`, `sort_time`, `published_at`, `period_label`, `id`, `source`, `title`, `summary`, `link`, `category`, `tsv`.
 - `search_unified` RPC (PRD-8, PRD-16)
-  - `row_number()` 파티션으로 kind별 `max_results` 제한.
-  - 파라미터: `q`, `cat`, `d_since`(기본 14일), `max_results`(기본 50).
+  - `row_number()` 파티션으로 kind별 `max_results` 제한 (`max_results < 1`이면 50 사용).
+  - 파라미터: `q`, `cat`(빈 문자열 무시), `d_since`(기본 14일), `max_results`(기본 50).
+  - 반환 필드: `kind`, `date_key`, `week_key`, `sort_time`, `published_at`, `period_label`, `id`, `source`, `title`, `summary`, `link`, `category`, `rank`.
 
 ## 사이드바 쿼리 예시 (PRD-12)
 
