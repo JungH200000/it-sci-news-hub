@@ -13,6 +13,8 @@ create or replace function public.search_unified(
   date_key date,
   week_key text,
   sort_time timestamptz,
+  published_at timestamptz,
+  period_label text,
   id text,
   source text,
   title text,
@@ -32,6 +34,8 @@ create or replace function public.search_unified(
       ua.date_key,
       ua.week_key,
       ua.sort_time,
+      ua.published_at,
+      ua.period_label,
       ua.id,
       ua.source,
       ua.title,
@@ -48,13 +52,15 @@ create or replace function public.search_unified(
     where params.raw_q <> ''
       and ua.tsv @@ params.tsq
       and (ua.kind <> 'daily' or ua.date_key >= current_date - coalesce(d_since, '14 days'::interval))
-      and (cat is null or ua.category = cat)
+      and (nullif(cat, '') is null or ua.category = cat)
   )
   select
     kind,
     date_key,
     week_key,
     sort_time,
+    published_at,
+    period_label,
     id,
     source,
     title,
@@ -63,7 +69,7 @@ create or replace function public.search_unified(
     category,
     rank
   from filtered
-  where rn <= coalesce(nullif(max_results, 0), 50)
+  where rn <= case when max_results is null or max_results < 1 then 50 else max_results end
   order by kind, rank desc, sort_time desc;
 $$;
 
