@@ -314,7 +314,6 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 <!-- PRD-9.2-2 -->
 
 - **기사 영역**: 카드 **10개** 기본 → **Load More**(10개씩 추가)
-
   - 카드: 제목(원문 링크), 요약, 출처, 발행일, 카테고리, (썸네일)
 
 ### Weekly 탭
@@ -408,7 +407,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 <!-- PRD-10.2-4 -->
 
-- `summary`: 본문/스니펫에서 2\~3문장(≈180자)
+- `summary`: 본문/스니펫에서 2\~3문장(≈180자)(추후 개선 ollama LLM 모델 이용하여 요약)
 
 <!-- PRD-10.2-5 -->
 
@@ -440,7 +439,6 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 > - **런타임**: GitHub Actions(UTC)
 > - **시간 매핑**:
->
 >   - Daily 06:00 **KST** = **전날 21:00 UTC**
 >   - Weekly 월 08:00 **KST** = **일 23:00 UTC**
 >
@@ -735,11 +733,9 @@ where created_at < now() - interval '26 weeks';
 <!-- PRD-20-1 -->
 
 - **W1**
-
   - 프로젝트 킥오프 & 기본 세팅
     (레포 초기화, 브랜치 전략/린터/포매터, 환경 변수 스펙 정리)
   - **UI 뼈대 구현 (Mock 데이터 기반)**
-
     - 레이아웃: 헤더, 탭, 사이드바, 카드 그리드
     - Daily/Weekly 탭 화면, 검색 결과 화면, 로딩/빈 상태/에러 메시지
     - 접근성 패턴(ARIA, 포커스 이동) 적용
@@ -749,20 +745,16 @@ where created_at < now() - interval '26 weeks';
 <!-- PRD-20-2 -->
 
 - **W2**
-
   - **DB 마이그레이션 실행** (테이블, 인덱스, 트리거, 뷰, RPC)
   - 데이터 수집 파이프라인 설계 & 샘플 적재
-
     - Daily: 한국경제 RSS → Supabase 적재 (요약=규칙 기반 추출)
     - Weekly: scienceON 스크래핑 목업/인터페이스 검증
 
   - **UI ↔ DB 연동**
-
     - Daily/Weekly 탭 실제 데이터 바인딩
     - 검색 RPC 연동 (관련도 → 최신 정렬, 섹션별 상한 보장)
 
   - 자동화 및 배포 준비
-
     - GitHub Actions(UTC 변환) 또는 Supabase Scheduler 선택
     - 실행 로그/에러 알림 채널 지정
 
@@ -774,7 +766,6 @@ where created_at < now() - interval '26 weeks';
 
 - **Frontend**: Next.js (React 기반, Vercel 배포 가정)
 - **Backend API & Batch**: Node.js + Express
-
   - 구조: **Controller → Service → Repository** (쿼리/SQL 분리)
   - 문서화: **OpenAPI** 스펙(`/docs/openapi.yaml`) + **Swagger UI**
   - 보안/안정성: **helmet, cors, compression, express-rate-limit**
