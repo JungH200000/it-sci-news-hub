@@ -1,68 +1,76 @@
-/* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  dailyDates,
-  weeklyWeeks,
-  getDailyArticles,
-  getWeeklyArticles,
-  searchArticles,
-  sidebarMeta,
-  searchHints,
-} from '../data/mockData';
-
-const TABS = [
-  { id: 'daily', label: 'Daily IT/Science' },
-  { id: 'weekly', label: 'Weekly SciTech' },
-];
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ArticleCard from '../components/ArticleCard';
+import { useDailySidebar } from '../hooks/useDailySidebar';
+import { useWeeklySidebar } from '../hooks/useWeeklySidebar';
+import { useDailyArticles } from '../hooks/useDailyArticles';
+import { useWeeklyArticles } from '../hooks/useWeeklyArticles';
+import { apiGet } from '../lib/api';
+import { sidebarMeta, searchHints } from '../data/mockData';
 
 const LOAD_SIZE = 10;
-const FALLBACK_THUMBNAILS = {
-  daily: 'https://placehold.co/640x360/dbeafe/1d4ed8?text=Daily+News',
-  weekly: 'https://placehold.co/640x360/0f172a/60a5fa?text=Weekly+Brief',
-};
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('daily');
-  const [selectedDate, setSelectedDate] = useState(dailyDates[0]?.value ?? '');
-  const [selectedWeek, setSelectedWeek] = useState(weeklyWeeks[0]?.value ?? '');
-
-  const [visibleDailyCount, setVisibleDailyCount] = useState(LOAD_SIZE);
-  const [visibleWeeklyCount, setVisibleWeeklyCount] = useState(LOAD_SIZE);
-  const [dailyLoading, setDailyLoading] = useState(false);
-  const [weeklyLoading, setWeeklyLoading] = useState(false);
-  const [focusTargetId, setFocusTargetId] = useState(null);
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchState, setSearchState] = useState({
-    performed: false,
-    results: { daily: [], weekly: [] },
-  });
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [visibleSearchDailyCount, setVisibleSearchDailyCount] = useState(LOAD_SIZE);
-  const [visibleSearchWeeklyCount, setVisibleSearchWeeklyCount] = useState(LOAD_SIZE);
-  const [searchFocusTargetId, setSearchFocusTargetId] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState('');
   const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const { items: dailySidebarItems, loading: dailySidebarLoading, error: dailySidebarError } = useDailySidebar();
+  const { items: weeklySidebarItems, loading: weeklySidebarLoading, error: weeklySidebarError } = useWeeklySidebar();
+
+  useEffect(() => {
+    if (!selectedDate && dailySidebarItems.length) {
+      setSelectedDate(dailySidebarItems[0].value);
+    }
+  }, [dailySidebarItems, selectedDate]);
+
+  useEffect(() => {
+    if (!selectedWeek && weeklySidebarItems.length) {
+      setSelectedWeek(weeklySidebarItems[0].value);
+    }
+  }, [weeklySidebarItems, selectedWeek]);
+
+  const {
+    items: dailyArticles,
+    hasMore: dailyHasMore,
+    loading: dailyLoading,
+    loadingMore: dailyLoadingMore,
+    error: dailyError,
+    loadMore: loadMoreDaily,
+  } = useDailyArticles(selectedDate);
+
+  const {
+    items: weeklyArticles,
+    hasMore: weeklyHasMore,
+    loading: weeklyLoading,
+    loadingMore: weeklyLoadingMore,
+    error: weeklyError,
+    loadMore: loadMoreWeekly,
+  } = useWeeklyArticles(selectedWeek);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState({ daily: [], weekly: [] });
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [visibleSearchDailyCount, setVisibleSearchDailyCount] = useState(LOAD_SIZE);
+  const [visibleSearchWeeklyCount, setVisibleSearchWeeklyCount] = useState(LOAD_SIZE);
 
   const tabRefs = useRef([]);
   const cardRefs = useRef({});
   const searchCardRefs = useRef({});
-  const timersRef = useRef([]);
   const searchHeadingRef = useRef(null);
 
-  useEffect(() => {
-    return () => {
-      timersRef.current.forEach((timer) => clearTimeout(timer));
-      timersRef.current = [];
-    };
-  }, []);
+  const [focusTargetId, setFocusTargetId] = useState(null);
+  const [searchFocusTargetId, setSearchFocusTargetId] = useState(null);
 
   useEffect(() => {
     if (focusTargetId && cardRefs.current[focusTargetId]) {
       cardRefs.current[focusTargetId].focus();
       setFocusTargetId(null);
     }
-  }, [focusTargetId, visibleDailyCount, visibleWeeklyCount]);
+  }, [focusTargetId, dailyArticles, weeklyArticles]);
 
   useEffect(() => {
     if (searchFocusTargetId && searchCardRefs.current[searchFocusTargetId]) {
@@ -70,17 +78,6 @@ export default function Home() {
       setSearchFocusTargetId(null);
     }
   }, [searchFocusTargetId, visibleSearchDailyCount, visibleSearchWeeklyCount]);
-
-  useEffect(() => {
-    setVisibleDailyCount(LOAD_SIZE);
-  }, [selectedDate]);
-
-  useEffect(() => {
-    setVisibleWeeklyCount(LOAD_SIZE);
-  }, [selectedWeek]);
-
-  const dailyArticles = useMemo(() => getDailyArticles(selectedDate), [selectedDate]);
-  const weeklyArticles = useMemo(() => getWeeklyArticles(selectedWeek), [selectedWeek]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -107,12 +104,6 @@ export default function Home() {
       setIsSidebarOpen(true);
     }
   }, [isCompactLayout]);
-
-  useEffect(() => {
-    if (isCompactLayout) {
-      setIsSidebarOpen(false);
-    }
-  }, [selectedDate, selectedWeek, activeTab, isCompactLayout]);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -150,171 +141,121 @@ export default function Home() {
     }
   };
 
-  const handleDailyLoadMore = () => {
-    if (dailyLoading) return;
-    const total = dailyArticles.length;
-    if (visibleDailyCount >= total) return;
-
-    setDailyLoading(true);
-    const nextVisible = Math.min(visibleDailyCount + LOAD_SIZE, total);
-    const focusId = dailyArticles[visibleDailyCount]?.id ?? null;
-    const timer = setTimeout(() => {
-      setVisibleDailyCount(nextVisible);
+  const handleDailyLoadMore = useCallback(async () => {
+    const focusId = await loadMoreDaily();
+    if (focusId) {
       setFocusTargetId(focusId);
-      setDailyLoading(false);
-    }, 450);
-    timersRef.current.push(timer);
-  };
+    }
+  }, [loadMoreDaily]);
 
-  const handleWeeklyLoadMore = () => {
-    if (weeklyLoading) return;
-    const total = weeklyArticles.length;
-    if (visibleWeeklyCount >= total) return;
-
-    setWeeklyLoading(true);
-    const nextVisible = Math.min(visibleWeeklyCount + LOAD_SIZE, total);
-    const focusId = weeklyArticles[visibleWeeklyCount]?.id ?? null;
-    const timer = setTimeout(() => {
-      setVisibleWeeklyCount(nextVisible);
+  const handleWeeklyLoadMore = useCallback(async () => {
+    const focusId = await loadMoreWeekly();
+    if (focusId) {
       setFocusTargetId(focusId);
-      setWeeklyLoading(false);
-    }, 450);
-    timersRef.current.push(timer);
-  };
+    }
+  }, [loadMoreWeekly]);
 
-  const handleSearchSubmit = (event) => {
+  const handleSearchSubmit = async (event) => {
     event.preventDefault();
-    setSearchLoading(true);
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults({ daily: [], weekly: [] });
+      setSearchPerformed(false);
+      setSearchError(null);
+      return;
+    }
 
-    const timer = setTimeout(() => {
-      const results = searchArticles(searchQuery);
-      setSearchState({ performed: true, results });
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchPerformed(false);
+    try {
+      const result = await apiGet('/search', { q: trimmed });
+      const payload = result?.data || {};
+      setSearchResults({
+        daily: Array.isArray(payload.results?.daily) ? payload.results.daily : [],
+        weekly: Array.isArray(payload.results?.weekly) ? payload.results.weekly : [],
+      });
       setVisibleSearchDailyCount(LOAD_SIZE);
       setVisibleSearchWeeklyCount(LOAD_SIZE);
-      setSearchFocusTargetId(null);
+      setSearchPerformed(true);
+      focusSearchHeading();
+    } catch (err) {
+      setSearchResults({ daily: [], weekly: [] });
+      setSearchError(err.message || '검색에 실패했습니다.');
+      setSearchPerformed(true);
+    } finally {
       setSearchLoading(false);
-      setTimeout(() => {
-        focusSearchHeading();
-      }, 0);
-    }, 420);
-
-    timersRef.current.push(timer);
-  };
-
-  const handleSearchLoadMore = (kind) => {
-    if (searchLoading) return;
-    const list = searchState.results[kind];
-    if (!list?.length) return;
-
-    if (kind === 'daily') {
-      if (visibleSearchDailyCount >= list.length) return;
-      const focusId = list[visibleSearchDailyCount]?.id ?? null;
-      const timer = setTimeout(() => {
-        setVisibleSearchDailyCount((prev) => Math.min(prev + LOAD_SIZE, list.length));
-        setSearchFocusTargetId(focusId);
-      }, 360);
-      timersRef.current.push(timer);
-    } else {
-      if (visibleSearchWeeklyCount >= list.length) return;
-      const focusId = list[visibleSearchWeeklyCount]?.id ?? null;
-      const timer = setTimeout(() => {
-        setVisibleSearchWeeklyCount((prev) => Math.min(prev + LOAD_SIZE, list.length));
-        setSearchFocusTargetId(focusId);
-      }, 360);
-      timersRef.current.push(timer);
     }
   };
 
-  const registerCardRef = (id) => (element) => {
-    if (element) {
-      cardRefs.current[id] = element;
-    }
-  };
-
-  const registerSearchCardRef = (id) => (element) => {
-    if (element) {
-      searchCardRefs.current[id] = element;
-    }
-  };
-
-  const focusSearchHeading = () => {
+  const focusSearchHeading = useCallback(() => {
     if (searchHeadingRef.current) {
       const node = searchHeadingRef.current;
-      if (typeof node.focus === 'function') {
-        try {
-          node.focus({ preventScroll: true });
-        } catch (error) {
-          node.focus();
-        }
+      try {
+        node.focus({ preventScroll: true });
+      } catch (error) {
+        node.focus();
       }
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  }, []);
+
+  const handleSearchLoadMore = (kind) => {
+    if (searchLoading) return;
+    if (kind === 'daily') {
+      if (visibleSearchDailyCount >= searchResults.daily.length) return;
+      const next = Math.min(visibleSearchDailyCount + LOAD_SIZE, searchResults.daily.length);
+      const focusId = searchResults.daily[visibleSearchDailyCount]?.id ?? null;
+      setVisibleSearchDailyCount(next);
+      if (focusId) setSearchFocusTargetId(`search-${focusId}`);
+    } else {
+      if (visibleSearchWeeklyCount >= searchResults.weekly.length) return;
+      const next = Math.min(visibleSearchWeeklyCount + LOAD_SIZE, searchResults.weekly.length);
+      const focusId = searchResults.weekly[visibleSearchWeeklyCount]?.id ?? null;
+      setVisibleSearchWeeklyCount(next);
+      if (focusId) setSearchFocusTargetId(`search-${focusId}`);
+    }
   };
 
-  const renderArticles = (articles, visibleCount, isWeekly = false, registerRef) => {
-    return (
-      <div className="card-grid">
-        {articles.slice(0, visibleCount).map((article) => (
-          <article
-            key={article.id}
-            ref={registerRef(article.id)}
-            className="article-card"
-            tabIndex={-1}
-          >
-            <img
-              src={resolveThumbnail(article, isWeekly)}
-              alt={
-                article.thumbnail
-                  ? '기사 썸네일'
-                  : isWeekly
-                    ? '주간 뉴스 기본 썸네일'
-                    : '일일 뉴스 기본 썸네일'
-              }
-              className="article-card__thumbnail"
-              loading="lazy"
-            />
-            <header className="article-card__meta">
-              <span>{article.source}</span>
-              {isWeekly && article.periodLabel ? <span>{article.periodLabel}</span> : null}
-              {!isWeekly && article.publishedAt ? (
-                <span>{formatKST(article.publishedAt)}</span>
-              ) : null}
-              <span className="article-card__category">{article.category}</span>
-            </header>
-            <h3 className="article-card__title">
-              <a href={article.link} target="_blank" rel="noreferrer">
-                {article.title}
-              </a>
-            </h3>
-            <p className="article-card__summary">{article.summary}</p>
-          </article>
-        ))}
-      </div>
-    );
-  };
+  const registerCardRef = useCallback(
+    (id) => (element) => {
+      if (element) {
+        cardRefs.current[id] = element;
+      }
+    },
+    []
+  );
 
-  const searchHasResults = searchState.results.daily.length + searchState.results.weekly.length > 0;
-  const sidebarEntries = activeTab === 'daily' ? dailyDates : weeklyWeeks;
-  const selectedValue = activeTab === 'daily' ? selectedDate : selectedWeek;
-  const selectedEntry = sidebarEntries.find((entry) => entry.value === selectedValue);
+  const registerSearchCardRef = useCallback(
+    (id) => (element) => {
+      if (element) {
+        searchCardRefs.current[id] = element;
+      }
+    },
+    []
+  );
+
+  const activeArticles = activeTab === 'daily' ? dailyArticles : weeklyArticles;
+  const activeLoading = activeTab === 'daily' ? dailyLoading : weeklyLoading;
+  const activeLoadingMore = activeTab === 'daily' ? dailyLoadingMore : weeklyLoadingMore;
+  const activeError = activeTab === 'daily' ? dailyError : weeklyError;
+  const canLoadMore = activeTab === 'daily' ? dailyHasMore : weeklyHasMore;
+  const onLoadMore = activeTab === 'daily' ? handleDailyLoadMore : handleWeeklyLoadMore;
+
+  const searchHasResults = useMemo(() => {
+    return (searchResults.daily.length + searchResults.weekly.length) > 0;
+  }, [searchResults]);
 
   return (
     <main>
       <header className="header">
         <div className="header__brand" aria-label="IT/Science News Hub">
-          <div className="header__brand-icon" aria-hidden="true">
-            <img src="/science_logo.png" alt="" width={40} height={40} />
-          </div>
+          <div className="header__brand-icon" aria-hidden="true">Δ</div>
           <span>IT/Science News Hub</span>
         </div>
 
         <div className="tabs">
-          <div
-            className="tablist"
-            role="tablist"
-            aria-label="뉴스 탭 선택"
-            onKeyDown={handleTabKeyDown}
-          >
+          <div className="tablist" role="tablist" aria-label="뉴스 탭 선택" onKeyDown={handleTabKeyDown}>
             {TABS.map((tab, index) => (
               <button
                 key={tab.id}
@@ -364,24 +305,51 @@ export default function Home() {
             {activeTab === 'daily' ? 'Daily Headlines' : 'Weekly Spotlight'}
           </h2>
 
-          {activeTab === 'daily'
-            ? renderArticles(dailyArticles, visibleDailyCount, false, registerCardRef)
-            : renderArticles(weeklyArticles, visibleWeeklyCount, true, registerCardRef)}
+          {activeError ? (
+            <p className="alert" role="status">
+              {activeError}
+            </p>
+          ) : null}
 
-          {activeTab === 'daily' ? (
-            <LoadMoreSection
-              total={dailyArticles.length}
-              visible={visibleDailyCount}
-              isLoading={dailyLoading}
-              onLoadMore={handleDailyLoadMore}
-            />
+          {activeLoading && !activeArticles.length ? (
+            <p className="status-line" role="status">
+              Loading…
+            </p>
+          ) : null}
+
+          {!activeLoading && !activeArticles.length && !activeError ? (
+            <p className="status-line" role="status">
+              No results found
+            </p>
+          ) : null}
+
+          <div className="card-grid">
+            {activeArticles.map((article) => (
+              <ArticleCard
+                key={article.id}
+                article={article}
+                isWeekly={activeTab === 'weekly'}
+                registerRef={registerCardRef}
+              />
+            ))}
+          </div>
+
+          {canLoadMore ? (
+            <button
+              type="button"
+              className="load-more"
+              onClick={onLoadMore}
+              disabled={activeLoadingMore}
+              aria-busy={activeLoadingMore ? 'true' : 'false'}
+            >
+              {activeLoadingMore ? 'Loading…' : 'Load More'}
+            </button>
           ) : (
-            <LoadMoreSection
-              total={weeklyArticles.length}
-              visible={visibleWeeklyCount}
-              isLoading={weeklyLoading}
-              onLoadMore={handleWeeklyLoadMore}
-            />
+            !activeLoading && activeArticles.length ? (
+              <div className="status-line" role="status">
+                No more results
+              </div>
+            ) : null
           )}
         </section>
 
@@ -391,73 +359,29 @@ export default function Home() {
         >
           <h3 className="sidebar__title">{activeTab === 'daily' ? '최근 14일' : '최근 8주'}</h3>
           <p className="alert">{sidebarMeta[activeTab]}</p>
-          {isCompactLayout ? (
-            <div className="sidebar__collapsible">
-              <button
-                type="button"
-                className="sidebar__toggle"
-                aria-expanded={isSidebarOpen ? 'true' : 'false'}
-                onClick={() => setIsSidebarOpen((prev) => !prev)}
-              >
-                <span className="sidebar__toggle-label">
-                  {selectedEntry ? selectedEntry.label : '항목 선택'}
-                </span>
-                {selectedEntry?.isNew ? <span className="badge badge--inline">New</span> : null}
-              </button>
-              <div className="sidebar__panel" hidden={!isSidebarOpen}>
-                <ul className="sidebar__list sidebar__list--compact">
-                  {sidebarEntries.map((entry) => {
-                    const isSelected = selectedValue === entry.value;
-                    return (
-                      <li key={entry.value}>
-                        <button
-                          type="button"
-                          className="sidebar__button"
-                          aria-pressed={isSelected}
-                          onClick={() => {
-                            if (activeTab === 'daily') {
-                              setSelectedDate(entry.value);
-                            } else {
-                              setSelectedWeek(entry.value);
-                            }
-                            setIsSidebarOpen(false);
-                          }}
-                        >
-                          <span>{entry.label}</span>
-                          {entry.isNew ? <span className="badge">New</span> : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <ul className="sidebar__list">
-              {sidebarEntries.map((entry) => {
-                const isSelected = selectedValue === entry.value;
 
-                return (
-                  <li key={entry.value}>
-                    <button
-                      type="button"
-                      className="sidebar__button"
-                      aria-pressed={isSelected}
-                      onClick={() => {
-                        if (activeTab === 'daily') {
-                          setSelectedDate(entry.value);
-                        } else {
-                          setSelectedWeek(entry.value);
-                        }
-                      }}
-                    >
-                      <span>{entry.label}</span>
-                      {entry.isNew ? <span className="badge">New</span> : null}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+          {activeTab === 'daily' ? (
+            <SidebarList
+              items={dailySidebarItems}
+              loading={dailySidebarLoading}
+              error={dailySidebarError}
+              selected={selectedDate}
+              onSelect={(value) => setSelectedDate(value)}
+              isCompact={isCompactLayout}
+              isOpen={isSidebarOpen}
+              onToggle={() => setIsSidebarOpen((prev) => !prev)}
+            />
+          ) : (
+            <SidebarList
+              items={weeklySidebarItems}
+              loading={weeklySidebarLoading}
+              error={weeklySidebarError}
+              selected={selectedWeek}
+              onSelect={(value) => setSelectedWeek(value)}
+              isCompact={isCompactLayout}
+              isOpen={isSidebarOpen}
+              onToggle={() => setIsSidebarOpen((prev) => !prev)}
+            />
           )}
         </aside>
       </div>
@@ -467,12 +391,18 @@ export default function Home() {
           <h2 className="section-heading" ref={searchHeadingRef} tabIndex={-1}>
             Search Results
           </h2>
-          {!searchState.performed ? (
+          {!searchPerformed ? (
             <span className="text-secondary">키워드를 입력하고 검색하세요.</span>
           ) : null}
         </div>
 
-        {searchState.performed && !searchHasResults && !searchLoading ? (
+        {searchError ? (
+          <p className="alert" role="status">
+            {searchError}
+          </p>
+        ) : null}
+
+        {searchPerformed && !searchLoading && !searchHasResults && !searchError ? (
           <p className="alert" role="status">
             No results found
           </p>
@@ -484,24 +414,22 @@ export default function Home() {
           </p>
         ) : null}
 
-        {searchState.results.daily.length ? (
+        {searchResults.daily.length ? (
           <SearchSection
             heading="Daily (최근 14일)"
-            articles={searchState.results.daily}
+            articles={searchResults.daily}
             visibleCount={visibleSearchDailyCount}
             onLoadMore={() => handleSearchLoadMore('daily')}
-            isLoading={searchLoading}
             registerRef={registerSearchCardRef}
           />
         ) : null}
 
-        {searchState.results.weekly.length ? (
+        {searchResults.weekly.length ? (
           <SearchSection
             heading="Weekly"
-            articles={searchState.results.weekly}
+            articles={searchResults.weekly}
             visibleCount={visibleSearchWeeklyCount}
             onLoadMore={() => handleSearchLoadMore('weekly')}
-            isLoading={searchLoading}
             registerRef={registerSearchCardRef}
             isWeekly
           />
@@ -511,120 +439,120 @@ export default function Home() {
   );
 }
 
-function LoadMoreSection({ total, visible, isLoading, onLoadMore }) {
-  const hasMore = visible < total;
-  return (
-    <div>
-      {hasMore ? (
+const TABS = [
+  { id: 'daily', label: 'Daily IT/Science' },
+  { id: 'weekly', label: 'Weekly SciTech' },
+];
+
+function SidebarList({ items, loading, error, selected, onSelect, isCompact, isOpen, onToggle }) {
+  if (loading) {
+    return (
+      <div className="sidebar__collapsible">
+        <p className="status-line">Loading…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="sidebar__collapsible">
+        <p className="alert" role="status">{error}</p>
+      </div>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <div className="sidebar__collapsible">
+        <p className="status-line">데이터가 없습니다.</p>
+      </div>
+    );
+  }
+
+  if (isCompact) {
+    const selectedItem = items.find((item) => item.value === selected) || items[0];
+    return (
+      <div className="sidebar__collapsible">
         <button
           type="button"
-          className="load-more"
-          onClick={onLoadMore}
-          disabled={isLoading}
-          aria-busy={isLoading ? 'true' : 'false'}
+          className="sidebar__toggle"
+          aria-expanded={isOpen ? 'true' : 'false'}
+          onClick={onToggle}
         >
-          {isLoading ? 'Loading…' : 'Load More'}
+          <span className="sidebar__toggle-label">{selectedItem.label}</span>
+          {selectedItem?.isNew ? <span className="badge badge--inline">New</span> : null}
         </button>
-      ) : (
-        <div className="status-line" role="status">
-          No more results
+        <div className="sidebar__panel" hidden={!isOpen}>
+          <ul className="sidebar__list sidebar__list--compact">
+            {items.map((entry) => (
+              <li key={entry.value}>
+                <button
+                  type="button"
+                  className="sidebar__button"
+                  aria-pressed={selected === entry.value}
+                  onClick={() => {
+                    onSelect(entry.value);
+                    onToggle();
+                  }}
+                >
+                  <span>{entry.label}</span>
+                  {entry.isNew ? <span className="badge">New</span> : null}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="sidebar__list">
+      {items.map((entry) => (
+        <li key={entry.value}>
+          <button
+            type="button"
+            className="sidebar__button"
+            aria-pressed={selected === entry.value}
+            onClick={() => onSelect(entry.value)}
+          >
+            <span>{entry.label}</span>
+            {entry.isNew ? <span className="badge">New</span> : null}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function SearchSection({
-  heading,
-  articles,
-  visibleCount,
-  onLoadMore,
-  isLoading,
-  registerRef,
-  isWeekly,
-}) {
+function SearchSection({ heading, articles, visibleCount, onLoadMore, registerRef, isWeekly = false }) {
+  const visibleItems = articles.slice(0, visibleCount);
   const hasMore = visibleCount < articles.length;
+
   return (
     <section>
       <h3 className="section-heading">{heading}</h3>
       <div className="card-grid">
-        {articles.slice(0, visibleCount).map((article) => (
-          <article
+        {visibleItems.map((article) => (
+          <ArticleCard
             key={`search-${article.id}`}
-            ref={registerRef(`search-${article.id}`)}
-            className="article-card"
-            tabIndex={-1}
-          >
-            <img
-              src={resolveThumbnail(article, isWeekly)}
-              alt={
-                article.thumbnail
-                  ? '검색 결과 썸네일'
-                  : isWeekly
-                    ? '주간 검색 기본 썸네일'
-                    : '일일 검색 기본 썸네일'
-              }
-              className="article-card__thumbnail"
-              loading="lazy"
-            />
-            <header className="article-card__meta">
-              <span>{article.source}</span>
-              {isWeekly && article.periodLabel ? <span>{article.periodLabel}</span> : null}
-              {!isWeekly && article.publishedAt ? (
-                <span>{formatKST(article.publishedAt)}</span>
-              ) : null}
-              <span className="article-card__category">{article.category}</span>
-            </header>
-            <h4 className="article-card__title">
-              <a href={article.link} target="_blank" rel="noreferrer">
-                {article.title}
-              </a>
-            </h4>
-            <p className="article-card__summary">{article.summary}</p>
-          </article>
+            article={article}
+            isWeekly={isWeekly}
+            registerRef={(id) => registerRef(`search-${id}`)}
+          />
         ))}
       </div>
       {hasMore ? (
-        <button
-          type="button"
-          className="load-more"
-          onClick={onLoadMore}
-          disabled={isLoading}
-          aria-busy={isLoading ? 'true' : 'false'}
-        >
-          {isLoading ? 'Loading…' : 'Load More'}
+        <button type="button" className="load-more" onClick={onLoadMore}>
+          Load More
         </button>
       ) : (
-        <div className="status-line" role="status">
-          No more results
-        </div>
+        visibleItems.length ? (
+          <div className="status-line" role="status">
+            No more results
+          </div>
+        ) : null
       )}
     </section>
   );
-}
-
-function formatKST(isoString) {
-  if (!isoString) return '';
-  try {
-    const date = new Date(isoString);
-    return date.toLocaleString('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch (error) {
-    return isoString;
-  }
-}
-
-function resolveThumbnail(article, isWeekly) {
-  if (article.thumbnail && article.thumbnail.trim()) {
-    return article.thumbnail;
-  }
-
-  return isWeekly ? FALLBACK_THUMBNAILS.weekly : FALLBACK_THUMBNAILS.daily;
 }

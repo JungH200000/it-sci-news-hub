@@ -65,9 +65,9 @@
 
 ## Phase 6. **UI ↔ API/DB 연동**
 
-- [ ] Daily/Weekly 탭: 실제 API 바인딩, 최신순 10개 + Load More _(ref: PRD-12-1\~3)_
-- [ ] 검색: RPC 연동, 결과 **섹션 분리 & 섹션별 상한** 보장 _(ref: PRD-8-4\~6)_
-- [ ] 빈/에러/로딩 상태 → 실 호출 흐름 연결 _(ref: PRD-14-1, PRD-14-2, PRD-14-4)_
+- [O] Daily/Weekly 탭: 실제 API 바인딩, 최신순 10개 + Load More _(ref: PRD-12-1\~3)_
+- [O] 검색: RPC 연동, 결과 **섹션 분리 & 섹션별 상한** 보장 _(ref: PRD-8-4\~6)_
+- [O] 빈/에러/로딩 상태 → 실 호출 흐름 연결 _(ref: PRD-14-1, PRD-14-2, PRD-14-4)_
 - DoD: Acceptance Criteria 전부 충족(§12), p95 < 500ms 목표 근접
 
 ## Phase 7. 자동화/배포/관측성
