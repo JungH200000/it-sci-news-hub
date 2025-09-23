@@ -57,11 +57,11 @@
 ## Phase 5. **데이터 수집 배치(ingest) 설계/구현**
 
 - “**수집 서비스는 Python으로 구현(services/ingest-py)**, Supabase REST로 upsert. 스케줄러는 GitHub Actions(UTC↔KST 매핑).”
-- [ ] 요약 정책: **규칙 기반 추출 요약(2\~3문장 / ≤180자)**, 결측 시 “요약 없음” _(ref: PRD-4-2, PRD-10.2-4, PRD-14-1)_
-- [ ] Daily(RSS) 어댑터: 한국경제 IT → KST 버킷/UTC 저장, **sha1(link)** 중복 방지, 썸네일 null-safe _(ref: PRD-10.1-1, PRD-10.2-1\~5, PRD-10.5)_
-- [ ] Weekly(scienceON) 어댑터: `week=YYYY-MM-N` 규칙 고정, `period_label` 유지 _(ref: PRD-10.1-4, PRD-10.2-6\~7)_
-- [ ] 실패 격리/재시도/백오프, 소스별 구조화 로그, 알림 경로 _(ref: PRD-19-1, PRD-13-3)_
-- DoD: 수동 실행으로 Daily/Weekly 각각 3\~5건 **upsert 성공**
+- [O] 요약 정책: **규칙 기반 추출 요약(2\~3문장 / ≤180자)**, 결측 시 “요약 없음” _(ref: PRD-4-2, PRD-10.2-4, PRD-14-1)_ – `hankyung_rss_scraper.py`, `science_on_scraper.py`에서 요약 함수 도입 및 폴백 처리
+- [O] Daily(RSS) 어댑터: 한국경제 IT → KST 버킷/UTC 저장, **sha1(link)** 중복 방지, 썸네일 null-safe _(ref: PRD-10.1-1, PRD-10.2-1\~5, PRD-10.5)_ – SHA1 ID, 150자 미만 본문 제외, `thumbnail`/`summary` 보강
+- [O] Weekly(scienceON) 어댑터: `week=YYYY-MM-N` 규칙 고정, `period_label` 유지 _(ref: PRD-10.1-4, PRD-10.2-6\~7)_ – 목록/상세 통합, `derive_week_key`로 주차 키 생성, `period_label` 함께 출력
+- [O] 실패 격리/재시도/백오프, 소스별 구조화 로그, 알림 경로 _(ref: PRD-19-1, PRD-13-3)_ – requests 세션에 Retry 구성, HTTP 실패 시 stderr 경고 로깅
+- DoD: 수동 실행으로 Daily/Weekly 각각 3\~5건 **upsert 성공** – `hankyung_rss_scraper.py --limit 5`, `science_on_scraper.py list 1 5` 실행 결과 확인(샘플 JSON 기록)
 
 ## Phase 6. **UI ↔ API/DB 연동**
 
