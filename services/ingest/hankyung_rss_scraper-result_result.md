@@ -1,3 +1,8 @@
+```wsl
+(.venv) jhpaxk02@DESKTOP-PREN5O4:~/it-sci-news-hub/services/ingest$ python3 hankyung_rss_scraper.py --limit 5
+```
+
+```json
 [
   {
     "id": "ecaec24a488dcd1a8eec04b0814285c438cdb1a3",
@@ -60,3 +65,4 @@
     "category": "AI"
   }
 ]
+```
