@@ -1,4 +1,4 @@
-# `db/migrations`
+# `supabase/migrations`
 
 DB 스키마·인덱스·뷰·RPC를 선언하는 SQL 스크립트 모음입니다. 각 파일은
 PRD 요구사항(특히 PRD-6, PRD-8, PRD-16)을 충족하도록 순차 실행됩니다.
@@ -18,11 +18,11 @@ PRD 요구사항(특히 PRD-6, PRD-8, PRD-16)을 충족하도록 순차 실행�
 ## 실행 예시
 
 ```bash
-psql "$DATABASE_URL" -f db/migrations/001_tables.sql
-psql "$DATABASE_URL" -f db/migrations/002_indexes.sql
-psql "$DATABASE_URL" -f db/migrations/003_tsv_triggers.sql
-psql "$DATABASE_URL" -f db/migrations/004_views.sql
-psql "$DATABASE_URL" -f db/migrations/005_search_rpc.sql
+psql "$DATABASE_URL" -f supabase/migrations/001_tables.sql
+psql "$DATABASE_URL" -f supabase/migrations/002_indexes.sql
+psql "$DATABASE_URL" -f supabase/migrations/003_tsv_triggers.sql
+psql "$DATABASE_URL" -f supabase/migrations/004_views.sql
+psql "$DATABASE_URL" -f supabase/migrations/005_search_rpc.sql
 ```
 
 `DATABASE_URL`은 `.env` 또는 `docs/env.md` 참고. Supabase 서비스 키를 사용할 때는 `psql "$(supabase db list --project-ref ...)"`처럼 래핑해도 됩니다.

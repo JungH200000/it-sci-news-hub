@@ -19,9 +19,9 @@
 
 - [O] PRD 범위·MVP 스코프 잠금 _(ref: PRD-5, PRD-20)_ – Daily/Weekly 기본 범위와 스케줄·UI·검색 요구 정리 완료
 - [O] `.gitignore`/린터/포매터 명시 _(ref: PRD-13)_ – 루트에 `.gitignore`, `.eslintrc.json`, `.prettierrc` 추가
-- [O] **폴더 스캐폴딩**: `/apps/web`, `/services/api`, `/services/ingest`, `/db/migrations`, `/docs`, `/infra/ci`
+- [O] **폴더 스캐폴딩**: `/apps/web`, `/services/api`, `/services/ingest`, `/supabase/migrations`, `/docs`, `/infra/ci`
 - [O] 환경 변수 스펙 문서화: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `TZ=Asia/Seoul` _(ref: PRD-15-1)_ – `docs/env.md` 작성, 루트 `.env` 사용
-- [O] **DB 마이그레이션 정책만 문서화(실행은 Phase 3)**: 001*tables → 002_indexes → 003_tsv_triggers → 004_views → 005_search_rpc *(ref: PRD-6, PRD-16)* – `docs/db-migrations.md` 작성
+- [O] **DB 마이그레이션 정책만 문서화(실행은 Phase 3)**: 001*tables → 002_indexes → 003_tsv_triggers → 004_views → 005_search_rpc *(ref: PRD-6, PRD-16)\* – `docs/db-migrations.md` 작성
 - DoD: Next.js dev 서버, **Express `/healthz`** 로컬 기동 확인 – `apps/web`(Next.js) 및 `services/api`(Express) 부트스트랩 완료. `npm run dev:web`, `npm run dev:api`로 기동 검증함.
 
 ## Phase 2. 프론트엔드 **UI 뼈대** (Mock 데이터)
@@ -35,7 +35,7 @@
 
 ## Phase 3. DB & 검색 기반 준비 (이때 마이그레이션 실행)
 
-- [O] **마이그레이션 실행**: 001*tables, 002_indexes, 003_tsv_triggers, 004_views, 005_search_rpc *(ref: PRD-6, PRD-8, PRD-16)* – `db/migrations/001~005.sql` 작성 및 `db/migrations/README.md` 실행 가이드 추가
+- [O] **마이그레이션 실행**: 001*tables, 002_indexes, 003_tsv_triggers, 004_views, 005_search_rpc *(ref: PRD-6, PRD-8, PRD-16)\* – `supabase/migrations/001~005.sql` 작성 및 `supabase/migrations/README.md` 실행 가이드 추가
 - [O] 검색 RPC 요구사항 확정: **kind별 섹션 상한(기본 50)** 보장 _(ref: PRD-8-6, PRD-16-2)_ – `005_search_rpc.sql`에서 `row_number()` 파티션으로 Daily/Weekly 각 50건 제한
 - [O] 사이드바 쿼리 성능 검증: `distinct date limit 14`, `distinct week limit 8` _(ref: PRD-12-1, PRD-12-3)_ – `docs/db-migrations.md`에 예시 SQL과 실행 체크리스트 문서화
 - [O] (옵션) 유니크 보강: `weekly(week, link)` unique _(ref: PRD-6.2-2)_ – `002_indexes.sql`에 `uniq_weekly_week_link` 포함
@@ -77,7 +77,7 @@
   - (대안) Supabase Scheduler
 
 - [ ] CI: lint/test/build, API smoke test, ingest dry-run
-- [ ] 배포: Web(Vercel), **API/ingest 별도 호스팅**(Render/Fly/Heroku/서버)
+- [ ] 배포: Web(Vercel), **API/ingest 별도 호스팅**(Railway/Render/Fly/Heroku/서버)
 - [ ] 관측성: 실행 로그 보관, 실패 알림(웹훅/메일), 간단 대시보드(수집 건수/실패율)
 - DoD: 스케줄 1회 수동 트리거 성공, 실데이터 카드 렌더 확인
 

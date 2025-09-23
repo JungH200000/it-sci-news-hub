@@ -9,6 +9,7 @@ Order (idempotent, incremental)
 3. 003_tsv_triggers – add `tsv` columns and triggers
 4. 004_views – `unified_articles` view
 5. 005_search_rpc – `search_unified` RPC (section caps)
+
 (optional) 006_policies – RLS (read-only)
 (optional) 007_retention_jobs – retention SQL
 
@@ -23,8 +24,8 @@ Notes
 - 적용 방법 예시
 
   ```bash
-  psql "$DATABASE_URL" -f db/migrations/001_tables.sql
-  psql "$DATABASE_URL" -f db/migrations/002_indexes.sql
+  psql "$DATABASE_URL" -f supabase/migrations/001_tables.sql
+  psql "$DATABASE_URL" -f supabase/migrations/002_indexes.sql
   ...
   ```
 
@@ -69,4 +70,4 @@ limit 8;
 - 샘플 데이터 적재 후 `EXPLAIN ANALYZE`로 주요 쿼리 측정.
 - 목표: 목록/검색 쿼리 `p95 < 500ms` (PRD-13-1).
 - 트리거/GIN 인덱스 적용 여부는 `
-  \d+ daily_articles` 등으로 확인.
+\d+ daily_articles` 등으로 확인.
