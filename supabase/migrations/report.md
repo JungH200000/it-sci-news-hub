@@ -70,3 +70,7 @@ alter table public.weekly_articles enable row level security;
 나머지 항목(SECURITY DEFINER 뷰, pg_trgm 확장 위치)은 지금 단계에서 치명적이진 않지만, 앞의 두 부분은 배포 전에 정리하는 걸 추천.
 
 => `006_security_hardening.sql` 생성 후 migration
+
+3. **security_definer_view**
+
+- supabase의 autofix로 해결
