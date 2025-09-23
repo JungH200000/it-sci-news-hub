@@ -10,11 +10,13 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from zoneinfo import ZoneInfo
 
 import requests
+from requests.adapters import HTTPAdapter, Retry
 import feedparser
 from bs4 import BeautifulSoup
 # (BeautifulSoup은 여러 파서를 지원하는데, 아래에서 'lxml' 파서를 지정할 거야)
@@ -26,6 +28,9 @@ KST = ZoneInfo("Asia/Seoul")
 
 # --- [HTTP 세션 준비] ---
 session = requests.Session()
+retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+session.mount("https://", HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
 session.headers.update({
     # 정상적인 브라우저 UA를 주면 차단/리디렉션 가능성↓
     "User-Agent": (
@@ -98,8 +103,45 @@ def text_collapse(s: str) -> str:
     return re.sub(r"[ \t\r\f\v]+", " ", s).strip()
 
 
+def clean_text(s: str | None) -> str:
+    if not s:
+        return ""
+    return text_collapse(s)
+
+
+def html_to_text(html: str | None) -> str:
+    if not html:
+        return ""
+    soup = BeautifulSoup(html, "lxml")
+    return clean_text(soup.get_text(" ", strip=True))
+
+
+def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> str | None:
+    """간단한 규칙 기반 요약: 앞쪽 문장 2~3개를 취하고 180자 내로 제한."""
+    if not text:
+        return None
+
+    normalized = text.replace("\n", " ")
+    candidates = re.split(r"(?<=[.!?\u3002\uFF01\uFF1F])\s+", normalized)
+    sentences = []
+    for cand in candidates:
+        cleaned = text_collapse(cand)
+        if cleaned:
+            sentences.append(cleaned)
+        if len(sentences) >= max_sentences:
+            break
+
+    if not sentences:
+        return None
+
+    summary = " ".join(sentences)
+    if len(summary) > max_chars:
+        summary = summary[: max_chars - 1].rstrip() + "…"
+    return summary
+
+
 # --- [기사 페이지 파싱] ---
-def extract_article_details(article_url: str) -> tuple[str | None, str | None]:
+def extract_article_details(article_url: str) -> tuple[str | None, str | None, str | None]:
     """
     한국경제 기사 페이지에서 (대표 이미지 URL, 본문 텍스트)를 추출.
     - 대표 이미지: div.article-body > figure.article-figure > div.figure-img > img
@@ -110,6 +152,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None]:
         r = session.get(article_url, timeout=15)
         r.raise_for_status()
     except Exception as e:
+        print(f"[warn] failed to fetch article: {article_url} ({e})", file=sys.stderr)
         return (None, None)
 
     # BeautifulSoup with lxml parser for speed/robustness
@@ -119,6 +162,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None]:
     body = soup.select_one("div.article-body")
     thumbnail_url = None
     body_text = None
+    meta_description = None
 
     if body:
         # a) Thumbnail within figure.article-figure > div.figure-img > img
@@ -156,7 +200,11 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None]:
         if og and og.get("content"):
             thumbnail_url = og["content"].strip() or None
 
-    return (thumbnail_url, body_text)
+    og_desc = soup.select_one('meta[property="og:description"]') or soup.select_one('meta[name="description"]')
+    if og_desc and og_desc.get("content"):
+        meta_description = clean_text(og_desc["content"])
+
+    return (thumbnail_url, body_text, meta_description)
 
 
 # --- [RSS에서 항목 뽑기] ---
@@ -200,12 +248,30 @@ def main():
         title = it["title"]
         author = it.get("author")
         pubdate = it.get("pubDate")
+        entry_summary_html = it.get("summary") or it.get("description")
+        entry_summary_text = html_to_text(entry_summary_html)
 
         published_at = parse_pubdate_to_utc_iso(pubdate)  # UTC ISO
         date_kst = kst_bucket_date_from_utc_iso(published_at)  # YYYY-MM-DD (KST)
 
         # ← 기사 페이지 들어가 대표 이미지/본문 추출
-        thumb, body = extract_article_details(link) 
+        thumb, body, meta_desc = extract_article_details(link)
+        summary = summarize_text(body) if body else None
+        if not summary:
+            summary = summarize_text(entry_summary_text)
+        if not summary and meta_desc:
+            summary = summarize_text(meta_desc)
+        if not body and entry_summary_text:
+            body = entry_summary_text
+        if not body and meta_desc:
+            body = meta_desc
+        body = body or entry_summary_text or meta_desc or ""
+
+        if len(body.strip()) < 150:
+            continue
+
+        if not summary:
+            summary = "요약 없음"
 
         doc = {
             "id": sha1_hex(link),
@@ -216,6 +282,7 @@ def main():
             "published_at": published_at,  # UTC ISO8601
             "date": date_kst,              # KST bucket
             "thumbnail": thumb,
+            "summary": summary,
             "body": body,
             "category": categorize(title),
         }

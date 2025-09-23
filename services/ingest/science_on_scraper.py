@@ -1,11 +1,22 @@
 # -*- coding: utf-8 -*-
+import hashlib
 import re
 import sys
 import json
+from datetime import datetime
+
 import requests
+from requests.adapters import HTTPAdapter, Retry
 from bs4 import BeautifulSoup, Tag
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+DEFAULT_SOURCE = "scienceON"
+
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+session.mount("https://", HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
+session.headers.update(HEADERS)
 BASE_DETAIL = "https://scienceon.kisti.re.kr/trendPromo/PORTrendPromoDtl.do?trendPromoNo={no}"
 
 # ---------- text utils ----------
@@ -14,6 +25,31 @@ def clean_text(s: str) -> str:
     s = s.replace("\xa0", " ").replace("\u00a0", " ")
     s = re.sub(r"\s+", " ", s)
     return s.strip()
+
+
+def sha1_hex(value: str) -> str:
+    return hashlib.sha1(value.encode("utf-8")).hexdigest()
+
+
+def truncate_summary(text: str, max_sentences: int = 3, max_chars: int = 180) -> str:
+    if not text:
+        return ""
+    # 문장 단위로 자르기 (한글 마침표 포함)
+    normalized = text.replace("\n", " ")
+    pieces = re.split(r"(?<=[.!?\u3002\uFF01\uFF1F])\s+", normalized)
+    sentences = []
+    for piece in pieces:
+        part = clean_text(piece)
+        if part:
+            sentences.append(part)
+        if len(sentences) >= max_sentences:
+            break
+    if not sentences:
+        sentences = [clean_text(text)]
+    summary = " ".join(sentences)
+    if len(summary) > max_chars:
+        summary = summary[: max_chars - 1].rstrip() + "…"
+    return summary
 
 def looks_like_title(t: str) -> bool:
     if not t or len(t) < 4: return False
@@ -142,7 +178,7 @@ def find_summary_between(root: Tag, start: Tag, end: Tag | None) -> str:
 # ---------- optional external fallback ----------
 def fetch_fallback_summary_from_link(link: str) -> str:
     try:
-        rr = requests.get(link, headers=HEADERS, timeout=10)
+        rr = session.get(link, timeout=10)
         rr.raise_for_status()
     except Exception:
         return ""
@@ -183,6 +219,8 @@ DATE_SOURCE_PAT = re.compile(
     r"[（(]\s*([^()（）/|]+?)\s*[/|]\s*(\d{2,4})[.\-](\d{1,2})[.\-](\d{1,2})\.?\s*[)）]"
 )
 
+WEEK_LABEL_RE = re.compile(r"(\d{1,2})월\s*(\d)주차")
+
 def extract_date_source_near(root: Tag, start: Tag, end: Tag | None) -> tuple[str, str]:
     """
     start(제목 p) 이후 ~ end(다음 제목 p) 이전 범위에서
@@ -204,15 +242,54 @@ def extract_date_source_near(root: Tag, start: Tag, end: Tag | None) -> tuple[st
             if m:
                 source = m.group(1).strip()
                 yyyy, mm, dd = int(m.group(2)), int(m.group(3)), int(m.group(4))
+                if yyyy < 100:
+                    yyyy += 2000
                 date_str = f"{yyyy:04d}-{mm:02d}-{dd:02d}"  # KST 버킷 YYYY-MM-DD
                 return date_str, source
     return "", ""
 
 
+def derive_week_key(list_date: str, period_label: str) -> str:
+    """주차 키를 YYYY-MM-N 형태로 정규화."""
+    year = None
+    month = None
+    week_no = None
+
+    cleaned_date = list_date.replace('.', '-').strip() if list_date else ""
+    if cleaned_date:
+        try:
+            dt = datetime.strptime(cleaned_date, "%Y-%m-%d")
+            year = dt.year
+            month = dt.month
+            day = dt.day
+            week_no = min(5, max(1, ((day - 1) // 7) + 1))
+        except ValueError:
+            pass
+
+    if period_label:
+        m = WEEK_LABEL_RE.search(period_label)
+        if m:
+            month = int(m.group(1))
+            week_no = int(m.group(2))
+
+    if year is None:
+        year = datetime.now().year
+    if month is None:
+        month = 1
+    if week_no is None:
+        week_no = 1
+
+    return f"{year:04d}-{month:02d}-{week_no}"
+
+
 # ---------- main parse ----------
 def parse_detail(detail_url: str, use_external_fallback: bool = False):
-    r = requests.get(detail_url, headers=HEADERS, timeout=30)
-    r.raise_for_status()
+    try:
+        r = session.get(detail_url, timeout=30)
+        r.raise_for_status()
+    except Exception as exc:
+        print(f"[warn] failed to fetch detail: {detail_url} ({exc})", file=sys.stderr)
+        return []
     if not r.encoding or r.encoding.lower() in ("iso-8859-1", "us-ascii"):
         r.encoding = r.apparent_encoding
 
@@ -257,13 +334,13 @@ def parse_detail(detail_url: str, use_external_fallback: bool = False):
         # 3) 정말 비면(그리고 원할 때만) 외부 메타 fallback
         if not summary and use_external_fallback:
             summary = fetch_fallback_summary_from_link(link)
-        
+
         items.append({
             "title": title,
             "link": link,
             "summary": summary,
-            "week": date,
-            "source": source
+            "date": date,
+            "original_source": source,
         })
 
     return items
@@ -275,7 +352,7 @@ LIST_URL = "https://scienceon.kisti.re.kr/trendPromo/PORTrendPromoList.do"
 JS_NO_RE = re.compile(r"fn_moveTrendPromoDtl\('(\d+)'\)")
 
 def fetch_html(url: str, params: dict | None = None) -> str:
-    r = requests.get(url, params=params or {}, headers=HEADERS, timeout=30)
+    r = session.get(url, params=params or {}, timeout=30)
     r.raise_for_status()
     if not r.encoding or r.encoding.lower() in ("iso-8859-1", "us-ascii"):
         r.encoding = r.apparent_encoding
@@ -329,21 +406,41 @@ def crawl_from_list(pages: int = 1, limit: int | None = None, use_external_fallb
             break
 
     results: list[dict] = []
+    seen_links: set[str] = set()
     for li in all_list_items:
         detail_url = BASE_DETAIL.format(no=li["no"])
-        detail_items = parse_detail(detail_url, use_external_fallback=use_external_fallback)
+        detail_items = parse_detail(detail_url, use_external_fallback=True)
         # 해당 상세 글 안에 여러 기사(title/link/summary…)가 들어있으므로 그대로 병합
         for d in detail_items:
-            # 상세에서 date/source를 못 잡았으면 리스트 날짜를 보조로 사용 (YYYY-MM-DD 또는 YYYY.MM.DD 둘 다 커버)
-            if not d.get("date"):
-                # list_date가 'YYYY-MM-DD' 또는 'YYYY.MM.DD'일 수 있음 → '-' 포맷으로 보정
-                ld = li.get("list_date", "")
-                if re.match(r"^\d{4}[.\-]\d{2}[.\-]\d{2}$", ld):
-                    d["date"] = ld.replace(".", "-")
-            # 원하면 목록 제목도 메타로 남겨두기
-            d.setdefault("period_label", li["period_label"])
-            d.setdefault("trendPromoNo", li["no"])
-            results.append(d)
+            period_label = li["period_label"]
+            list_date = li.get("list_date", "")
+
+            if not d.get("date") and list_date:
+                if re.match(r"^\d{4}[.\-]\d{2}[.\-]\d{2}$", list_date):
+                    d["date"] = list_date.replace(".", "-")
+
+            week_key = derive_week_key(list_date, period_label)
+            summary_text = truncate_summary(d.get("summary", ""))
+            if not summary_text:
+                summary_text = "요약 없음"
+
+            if d["link"] in seen_links:
+                continue
+            seen_links.add(d["link"])
+
+            results.append({
+                "id": sha1_hex(f"{DEFAULT_SOURCE}:{week_key}:{d['title']}:{d['link']}"),
+                "title": d["title"],
+                "link": d["link"],
+                "summary": summary_text,
+                "week": week_key,
+                "date": d.get("date") or (list_date.replace(".", "-") if list_date else ""),
+                "source": DEFAULT_SOURCE,
+                "category": "과학기술",
+                "original_source": d.get("original_source"),
+                "period_label": period_label,
+                "trendPromoNo": li["no"],
+            })
     return results
 
 
@@ -374,4 +471,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
