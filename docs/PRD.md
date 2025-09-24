@@ -316,6 +316,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 - **기사 영역**: 카드 **10개** 기본 → **Load More**(10개씩 추가)
   - 카드: 제목(원문 링크), 요약, 출처, 발행일, 카테고리, (썸네일)
+  - **추후 데이터가 많이 쌓이면** 날짜/주차 목록도 `더보기` 버튼으로 추가 분량을 로드하는 방식(접힘/무한 스크롤) 검토
 
 ### Weekly 탭
 
@@ -726,6 +727,7 @@ where created_at < now() - interval '26 weeks';
 <!-- PRD-19-3 -->
 
 - 저작권/이용약관 → 원문 링크·출처 명시, 각 사이트 `robots.txt` 준수
+- 이미지/텍스트 재사용 이슈 → MVP 단계에서는 원문 썸네일 제거 또는 대체 이미지 사용, 상업화 시 언론사 API/라이선스 체결 또는 AI 생성 이미지·자체 제작 비주얼 도입 검토
 
 ---
 
