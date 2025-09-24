@@ -9,9 +9,12 @@ Order (idempotent, incremental)
 3. 003_tsv_triggers – add `tsv` columns and triggers
 4. 004_views – `unified_articles` view
 5. 005_search_rpc – `search_unified` RPC (section caps)
+6. 006_security_hardening – RLS enablement + stable `search_path`
+7. 007_weekly_thumbnails – add optional `thumbnail` column to weekly articles
+8. 008_unified_thumbnail – expose thumbnail in unified view & search RPC
 
-(optional) 006_policies – RLS (read-only)
-(optional) 007_retention_jobs – retention SQL
+(optional) 008_policies – RLS (read-only)
+(optional) 009_retention_jobs – retention SQL
 
 Notes
 
@@ -36,6 +39,7 @@ Notes
 
 - `daily_articles`, `weekly_articles` (PRD-6)
   - 기본 필드 + `created_at default now()`.
+  - Weekly는 scienceON 집계 기사에서 **원문 출처·썸네일**을 그대로 보관한다.
   - 일일/주간 고유 조건: `uniq_daily_link`, `uniq_weekly_week_link`.
 - GIN 인덱스 (PRD-8)
   - `tsv` + `gin_trgm_ops` 인덱스로 부분 일치 보완.
@@ -48,6 +52,10 @@ Notes
   - `row_number()` 파티션으로 kind별 `max_results` 제한 (`max_results < 1`이면 50 사용).
   - 파라미터: `q`, `cat`(빈 문자열 무시), `d_since`(기본 14일), `max_results`(기본 50).
   - 반환 필드: `kind`, `date_key`, `week_key`, `sort_time`, `published_at`, `period_label`, `id`, `source`, `title`, `summary`, `link`, `category`, `rank`.
+- Weekly 썸네일 확장 (PRD-6.2, PRD-9.3)
+  - `weekly_articles.thumbnail` 텍스트 컬럼 추가(Nullable). 카드 UI 썸네일 표현을 위한 필드.
+- Unified/검색 썸네일 노출 (PRD-9, PRD-16)
+  - `unified_articles` 뷰와 `search_unified` 함수가 `thumbnail`을 포함하도록 재정의.
 
 ## 사이드바 쿼리 예시 (PRD-12)
 

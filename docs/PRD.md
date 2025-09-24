@@ -141,11 +141,12 @@ create unique index if not exists uniq_daily_link on daily_articles(link);
 | id           | text (PK)   | `SHA1(source+week+title+link)` |
 | week         | text        | YYYY-MM-N (예: 2025-09-3)      |
 | period_label | text        | UI 표시용 (“2025년 9월 3주차”) |
-| source       | text        | 출처 (scienceON)               |
+| source       | text        | 원 출처 (예: 동아사이언스)      |
 | title        | text        | 제목                           |
 | summary      | text        | 요약                           |
 | link         | text        | 원문 링크                      |
 | category     | text        | 기본 `과학기술`                |
+| thumbnail    | text        | 썸네일 URL(선택)               |
 | created_at   | timestamptz | 삽입 시각(default now)         |
 
 **권장 인덱스**
@@ -413,7 +414,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 - `category`: 소스 기본값 → 제목 키워드 덮어쓰기
 
-**Weekly**: `axios + cheerio` → 추출 → `weekly_articles` UPSERT
+**Weekly**: `axios + cheerio` → 추출 → `weekly_articles` UPSERT (원문 출처·썸네일 유지)
 
 <!-- PRD-10.2-6 -->
 
@@ -757,6 +758,7 @@ where created_at < now() - interval '26 weeks';
   - 자동화 및 배포 준비
     - GitHub Actions(UTC 변환) 또는 Supabase Scheduler 선택
     - 실행 로그/에러 알림 채널 지정
+    - 운영 FAQ는 `docs/phase7_qna.md` 참고 (검색/배치/서버 온디맨드/데이터 보존)
 
   - QA & 성능 점검, README/운영 가이드 업데이트
 

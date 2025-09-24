@@ -39,6 +39,8 @@
 - [O] 검색 RPC 요구사항 확정: **kind별 섹션 상한(기본 50)** 보장 _(ref: PRD-8-6, PRD-16-2)_ – `005_search_rpc.sql`에서 `row_number()` 파티션으로 Daily/Weekly 각 50건 제한
 - [O] 사이드바 쿼리 성능 검증: `distinct date limit 14`, `distinct week limit 8` _(ref: PRD-12-1, PRD-12-3)_ – `docs/db-migrations.md`에 예시 SQL과 실행 체크리스트 문서화
 - [O] (옵션) 유니크 보강: `weekly(week, link)` unique _(ref: PRD-6.2-2)_ – `002_indexes.sql`에 `uniq_weekly_week_link` 포함
+- [O] Weekly 썸네일 컬럼 추가: `thumbnail` 텍스트 컬럼 도입 _(ref: PRD-6.2, PRD-9.3)_ – `007_weekly_thumbnails.sql`에서 idempotent 추가
+- [O] Unified 뷰/검색 썸네일 노출: `unified_articles` & `search_unified`가 `thumbnail` 반환 _(ref: PRD-9, PRD-16)_ – `008_unified_thumbnail.sql`
 - DoD: 빈 DB에 idempotent 적용, 대표 쿼리 p95 < 500ms 근접 – `docs/db-migrations.md` 성능 확인 절차 추가, GIN/tsvector 구성 완료
 
 ## Phase 4. **Express 백엔드(API) 설계/구현**
@@ -59,7 +61,7 @@
 - “**수집 서비스는 Python으로 구현(services/ingest-py)**, Supabase REST로 upsert. 스케줄러는 GitHub Actions(UTC↔KST 매핑).”
 - [O] 요약 정책: **규칙 기반 추출 요약(2\~3문장 / ≤180자)**, 결측 시 “요약 없음” _(ref: PRD-4-2, PRD-10.2-4, PRD-14-1)_ – `hankyung_rss_scraper.py`, `science_on_scraper.py`에서 요약 함수 도입 및 폴백 처리
 - [O] Daily(RSS) 어댑터: 한국경제 IT → KST 버킷/UTC 저장, **sha1(link)** 중복 방지, 썸네일 null-safe _(ref: PRD-10.1-1, PRD-10.2-1\~5, PRD-10.5)_ – SHA1 ID, 150자 미만 본문 제외, `thumbnail`/`summary` 보강
-- [O] Weekly(scienceON) 어댑터: `week=YYYY-MM-N` 규칙 고정, `period_label` 유지 _(ref: PRD-10.1-4, PRD-10.2-6\~7)_ – 목록/상세 통합, `derive_week_key`로 주차 키 생성, `period_label` 함께 출력
+- [O] Weekly(scienceON) 어댑터: `week=YYYY-MM-N` 규칙 고정, `period_label` 유지 _(ref: PRD-10.1-4, PRD-10.2-6\~7)_ – 목록/상세 통합, `derive_week_key`로 주차 키 생성, **원문 출처·썸네일 유지**
 - [O] 실패 격리/재시도/백오프, 소스별 구조화 로그, 알림 경로 _(ref: PRD-19-1, PRD-13-3)_ – requests 세션에 Retry 구성, HTTP 실패 시 stderr 경고 로깅
 - DoD: 수동 실행으로 Daily/Weekly 각각 3\~5건 **upsert 성공** – `hankyung_rss_scraper.py --limit 5`, `science_on_scraper.py list 1 5` 실행 결과 확인(샘플 JSON 기록)
 
@@ -80,6 +82,8 @@
 - [ ] 배포: Web(Vercel), **API/ingest 별도 호스팅**(Railway/Render/Fly/Heroku/서버)
 - [ ] 관측성: 실행 로그 보관, 실패 알림(웹훅/메일), 간단 대시보드(수집 건수/실패율)
 - DoD: 스케줄 1회 수동 트리거 성공, 실데이터 카드 렌더 확인
+
+> Phase 7 운영/배포 FAQ는 `docs/phase7_qna.md` 참고 (검색/자동화/서버 온디맨드 운영/데이터 보존 정리).
 
 ---
 
