@@ -2,7 +2,8 @@ name: Ingest Weekly Articles
 
 on:
   schedule:
-    - cron: '0 23 * * 0' # Monday 08:00 KST
+    - cron: '0 3 * * 1' # Monday 12:00 KST
+    - cron: '0 3 * * 4' # Thursday 12:00 KST
   workflow_dispatch:
 
 jobs:
