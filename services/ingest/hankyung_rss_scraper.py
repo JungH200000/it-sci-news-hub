@@ -58,7 +58,8 @@ BLACKLIST_KEYWORDS = {
     "취업", "채용", "노동", "고용", "인사", "임금", "연봉",
     "규제", "과징금", "제재", "검찰", "경찰", "사건", "소송", "재판",
     "선거", "정치", "외교", "안보", "헌신", "관세", "영양제", "외래환자",
-    "LCK", "술", "가족 친화 경영"
+    "LCK", "가족 친화 경영", "전산시스템", "다이소", "젠지", "박카스", 
+    "폭발한", "무서워", "스크래치"
 }
 
 def sanitize_title(value: str) -> str:
@@ -84,20 +85,15 @@ def _normalize(text: str | None) -> str:
         return ""
     return text.lower()
 
-
-def has_keyword(texts: Iterable[str | None], keywords: set[str]) -> bool:
-    for raw in texts:
-        normalized = _normalize(raw)
-        if not normalized:
-            continue
-        if any(keyword in normalized for keyword in keywords):
-            return True
-    return False
-
-
 def is_relevant(*texts: str | None) -> bool:
     # 블랙리스트 키워드가 포함되면 제외
-    return not has_keyword(texts, BLACKLIST_KEYWORDS)
+    for raw in texts:
+        normalized = _normalize(raw)
+        for keyword in BLACKLIST_KEYWORDS:
+            if keyword in normalized:
+                print(f"[filter] skip due to keyword: {keyword}", file=sys.stderr)
+                return False
+    return True
 
 
 # ---- Utils ----
