@@ -53,16 +53,6 @@ CATEGORY_RULES = [
     (re.compile(r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제)", re.I), "생명과학"),
 ]
 
-WHITELIST_KEYWORDS = {
-    "it", "기술", "테크", "과학", "연구", "실험", "혁신",
-    "ai", "인공지능", "llm", "챗gpt", "로봇", "로보틱스", "드론", "자율주행",
-    "반도체", "칩", "파운드리", "양자", "양자컴퓨팅", "클라우드", "데이터", "saas",
-    "스타트업", "벤처", "모빌리티", "it서비스", "소프트웨어", "앱", "app", "플랫폼",
-    "사이버", "보안", "해킹", "취약점", "랜섬웨어", "블록체인", "메타버스",
-    "바이오", "생명", "유전체", "신약", "의료기기", "디지털헬스",
-    "스마트폰", "폰", "디스플레이", "oled", "배터리", "센서", "iot",
-}
-
 BLACKLIST_KEYWORDS = {
     "부동산", "아파트", "채권", "주식", "환율", "외환", "물가", "금리",
     "취업", "채용", "노동", "고용", "인사", "임금", "연봉",
@@ -106,14 +96,8 @@ def has_keyword(texts: Iterable[str | None], keywords: set[str]) -> bool:
 
 
 def is_relevant(*texts: str | None) -> bool:
-    """
-    if not has_keyword(texts, WHITELIST_KEYWORDS):
-        return False
-    """
     # 블랙리스트 키워드가 포함되면 제외
-    if has_keyword(texts, BLACKLIST_KEYWORDS):
-        return False
-    return True
+    return not has_keyword(texts, BLACKLIST_KEYWORDS)
 
 
 # ---- Utils ----
