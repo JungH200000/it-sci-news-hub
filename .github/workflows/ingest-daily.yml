@@ -27,4 +27,4 @@ jobs:
           pip install -r requirement.txt
 
       - name: Run daily ingest
-        run: python services/ingest/run_ingest.py daily --limit 30
+        run: python services/ingest/run_ingest.py daily --limit 50
