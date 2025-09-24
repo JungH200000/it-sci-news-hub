@@ -58,6 +58,20 @@ def run_command(cmd: List[str]) -> str:
 
 
 def parse_json_lines(raw: str) -> List[Dict[str, Any]]:
+    stripped = raw.strip()
+    if not stripped:
+        return []
+
+    # science_on_scraper.py 목록 모드는 JSON 배열을 출력한다.
+    if stripped.startswith("["):
+        try:
+            data = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise IngestError(f"Failed to parse JSON array: {exc.msg}") from exc
+        if not isinstance(data, list):
+            raise IngestError("Expected JSON array from scraper output")
+        return data
+
     records: List[Dict[str, Any]] = []
     for idx, line in enumerate(raw.splitlines(), start=1):
         line = line.strip()
