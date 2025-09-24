@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import pino from 'pino';
 import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yaml';
@@ -15,7 +16,7 @@ import apiRoutes from './routes/index.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const openApiPath = path.resolve(__dirname, '../../docs/openapi.yaml');
+const openApiPath = path.resolve(__dirname, '../../../docs/openapi.yaml');
 let openApiDocument = null;
 
 try {
@@ -26,10 +27,33 @@ try {
   console.warn('Failed to load OpenAPI document:', error.message);
 }
 
+const pinoLogger = pino({
+  level: config.logging.level,
+  transport: config.logging.pretty
+    ? {
+        target: 'pino-pretty',
+        options: {
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined,
+});
+
 export function createApp() {
   const app = express();
 
-  app.use(pinoHttp());
+  app.use(
+    pinoHttp({
+      logger: pinoLogger,
+      customLogLevel: (req, res, err) => {
+        if (req.url === '/healthz') return 'silent';
+        if (err || res.statusCode >= 500) return 'error';
+        if (res.statusCode >= 400) return 'warn';
+        return config.logging.level === 'silent' ? 'silent' : 'info';
+      },
+    })
+  );
   app.use(helmet());
   app.use(cors());
   app.use(compression());

@@ -13,6 +13,15 @@ const parseNumber = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const parseBoolean = (value, fallback) => {
+  if (typeof value === 'string') {
+    const lower = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(lower)) return true;
+    if (['false', '0', 'no', 'n'].includes(lower)) return false;
+  }
+  return fallback;
+};
+
 export const config = {
   port: parseNumber(process.env.PORT, 4000),
   databaseUrl:
@@ -33,6 +42,10 @@ export const config = {
     defaultSince: process.env.SEARCH_DAYS_SINCE ?? '14 days',
     defaultLimit: parseNumber(process.env.SEARCH_DEFAULT_LIMIT, 50),
     maxLimit: parseNumber(process.env.SEARCH_MAX_LIMIT, 50),
+  },
+  logging: {
+    level: process.env.LOG_LEVEL?.trim() || 'info',
+    pretty: parseBoolean(process.env.LOG_PRETTY, process.env.NODE_ENV !== 'production'),
   },
 };
 
