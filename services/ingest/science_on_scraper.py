@@ -51,13 +51,31 @@ def sha1_hex(value: str) -> str:
     return hashlib.sha1(value.encode("utf-8")).hexdigest()
 
 
+SENTENCE_ENDINGS = ['다.', '다?', '다!', '.', '!', '?', '…']
+
+
+def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
+    text = (text or '').strip()
+    if not text:
+        return text
+    end_positions: list[int] = []
+    for ending in SENTENCE_ENDINGS:
+        idx = text.rfind(ending)
+        if idx != -1:
+            end_positions.append(idx + len(ending))
+    if end_positions:
+        return text[:max(end_positions)].strip()
+    if truncated:
+        return text.rstrip('.') + '…'
+    return text
+
+
 def truncate_summary(text: str, max_sentences: int = 3, max_chars: int = 180) -> str:
     if not text:
         return ""
-    # 문장 단위로 자르기 (한글 마침표 포함)
     normalized = text.replace("\n", " ")
     pieces = re.split(r"(?<=[.!?\u3002\uFF01\uFF1F])\s+", normalized)
-    sentences = []
+    sentences: list[str] = []
     for piece in pieces:
         part = clean_text(piece)
         if part:
@@ -66,9 +84,29 @@ def truncate_summary(text: str, max_sentences: int = 3, max_chars: int = 180) ->
             break
     if not sentences:
         sentences = [clean_text(text)]
-    summary = " ".join(sentences)
-    if len(summary) > max_chars:
-        summary = summary[: max_chars - 1].rstrip() + "…"
+
+    selected: list[str] = []
+    truncated = False
+    for sent in sentences:
+        candidate = " ".join(selected + [sent]) if selected else sent
+        if len(candidate) > max_chars:
+            truncated = True
+            break
+        selected.append(sent)
+
+    if not selected:
+        truncated = True
+        summary = sentences[0][:max_chars].strip()
+    else:
+        summary = " ".join(selected).strip()
+        if len(summary) > max_chars:
+            truncated = True
+            summary = summary[:max_chars].strip()
+
+    summary = ensure_sentence_boundary(summary, truncated)
+    if not summary:
+        fallback = ensure_sentence_boundary(sentences[0][:max_chars].strip(), True)
+        return fallback or ""
     return summary
 
 def looks_like_title(t: str) -> bool:

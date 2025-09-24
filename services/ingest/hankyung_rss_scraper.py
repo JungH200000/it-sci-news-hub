@@ -13,7 +13,6 @@ import re
 import sys
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Iterable
 from zoneinfo import ZoneInfo
 
 import requests
@@ -89,11 +88,31 @@ def is_relevant(*texts: str | None) -> bool:
     # 블랙리스트 키워드가 포함되면 제외
     for raw in texts:
         normalized = _normalize(raw)
+        if not normalized:
+            continue
         for keyword in BLACKLIST_KEYWORDS:
             if keyword in normalized:
-                print(f"[filter] skip due to keyword: {keyword}", file=sys.stderr)
                 return False
     return True
+
+
+SENTENCE_ENDINGS = ['다.', '다?', '다!', '.', '!', '?', '…']
+
+
+def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
+    text = (text or '').strip()
+    if not text:
+        return text
+    end_positions: list[int] = []
+    for ending in SENTENCE_ENDINGS:
+        idx = text.rfind(ending)
+        if idx != -1:
+            end_positions.append(idx + len(ending))
+    if end_positions:
+        return text[:max(end_positions)].strip()
+    if truncated:
+        return text.rstrip('.') + '…'
+    return text
 
 
 # ---- Utils ----
@@ -166,10 +185,28 @@ def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> s
 
     if not sentences:
         return None
+    selected: list[str] = []
+    truncated = False
+    for sent in sentences:
+        candidate = " ".join(selected + [sent]) if selected else sent
+        if len(candidate) > max_chars:
+            truncated = True
+            break
+        selected.append(sent)
 
-    summary = " ".join(sentences)
-    if len(summary) > max_chars:
-        summary = summary[: max_chars - 1].rstrip() + "…"
+    if not selected:
+        truncated = True
+        summary = sentences[0][:max_chars].strip()
+    else:
+        summary = " ".join(selected).strip()
+        if len(summary) > max_chars:
+            truncated = True
+            summary = summary[:max_chars].strip()
+
+    summary = ensure_sentence_boundary(summary, truncated)
+    if not summary:
+        fallback = ensure_sentence_boundary(sentences[0][:max_chars].strip(), True)
+        return fallback or None
     return summary
 
 
