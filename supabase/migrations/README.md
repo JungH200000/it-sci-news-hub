@@ -12,6 +12,9 @@ PRD 요구사항(특히 PRD-6, PRD-8, PRD-16)을 충족하도록 순차 실행�
 | `003_tsv_triggers.sql` | FTS용 `tsvector` 컬럼, 트리거 함수/GIN 인덱스               |
 | `004_views.sql`        | `unified_articles` 뷰 (`published_at`, `period_label` 포함) |
 | `005_search_rpc.sql`   | kind별 상한이 적용된 `search_unified` RPC                   |
+| `006_security_hardening.sql` | RLS 활성화 및 함수 `search_path` 고정                         |
+| `007_weekly_thumbnails.sql`  | `weekly_articles` 썸네일 컬럼 추가                         |
+| `008_unified_thumbnail.sql`  | `unified_articles` 뷰/`search_unified`에 썸네일 노출         |
 
 각 스크립트는 트랜잭션으로 감싸져 있어 실패 시 롤백됩니다. idempotent 하게 작성되어, 여러 번 실행해도 안전합니다.
 
@@ -23,6 +26,9 @@ psql "$DATABASE_URL" -f supabase/migrations/002_indexes.sql
 psql "$DATABASE_URL" -f supabase/migrations/003_tsv_triggers.sql
 psql "$DATABASE_URL" -f supabase/migrations/004_views.sql
 psql "$DATABASE_URL" -f supabase/migrations/005_search_rpc.sql
+psql "$DATABASE_URL" -f supabase/migrations/006_security_hardening.sql
+psql "$DATABASE_URL" -f supabase/migrations/007_weekly_thumbnails.sql
+psql "$DATABASE_URL" -f supabase/migrations/008_unified_thumbnail.sql
 ```
 
 `DATABASE_URL`은 `.env` 또는 `docs/env.md` 참고. Supabase 서비스 키를 사용할 때는 `psql "$(supabase db list --project-ref ...)"`처럼 래핑해도 됩니다.
@@ -133,6 +139,22 @@ create or replace function public.search_unified(
   - `cat` 있으면 해당 카테고리만
   - daily는 기본적으로 최근 14일만 검색
 
+### 006_security_hardening.sql
+
+- 목적: 공개 스키마 기본 보안을 강화.
+  - `daily_articles`, `weekly_articles`에 RLS를 활성화하고 읽기 전용 정책을 적용.
+  - 트리거 및 SQL 함수에 `set search_path = public`을 지정해 실행 컨텍스트를 고정.
+
+### 007_weekly_thumbnails.sql
+
+- 목적: Weekly 카드에서도 썸네일을 활용할 수 있도록 `weekly_articles`에 `thumbnail` 텍스트 컬럼을 추가.
+- 기존 행과 호환되도록 nullable + idempotent로 작성.
+
+### 008_unified_thumbnail.sql
+
+- 목적: 검색 결과에서도 썸네일을 표시할 수 있도록 `unified_articles` 뷰와 `search_unified` 함수에 `thumbnail` 컬럼을 포함.
+- Daily/Weekly 모두 thumbnail을 select하여 Load More/Search 카드 UI가 실제 이미지를 사용할 수 있음.
+
 ### 전체 요약
 
 1. 001_tables.sql → 기사 상자(daily, weekly 테이블) 만들기
@@ -140,6 +162,9 @@ create or replace function public.search_unified(
 3. 003_tsv_triggers.sql → 검색 전용 사본(tsv) 자동 생성하기
 4. 004_views.sql → daily+weekly 합친 가상 테이블(unified_articles)
 5. 005_search_rpc.sql → 검색 함수(search_unified) 제공
+6. 006_security_hardening.sql → RLS/함수 search_path 기본값 강화
+7. 007_weekly_thumbnails.sql → Weekly 썸네일 컬럼 추가
+8. 008_unified_thumbnail.sql → 통합 뷰/검색 RPC에 썸네일 노출
 
 👉 그림으로 비유하면:
 상자를 만들고(001)
