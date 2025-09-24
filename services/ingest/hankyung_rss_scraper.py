@@ -49,8 +49,15 @@ CATEGORY_RULES = [
     (re.compile(r"(보안|해킹|유출|취약|랜섬)", re.I), "보안"),
     (re.compile(r"(반도체|칩|파운드리)", re.I), "반도체"),
     (re.compile(r"(로봇|로보틱스)", re.I), "로봇"),
-    (re.compile(r"(생명|제약|백신|유전체|미생물)", re.I), "생명과학"),
+    (re.compile(r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제)", re.I), "생명과학"),
 ]
+
+def sanitize_title(value: str) -> str:
+    if not value:
+        return ""
+    cleaned = value.replace('\\', '')
+    cleaned = cleaned.replace('"', '')
+    return cleaned.strip()
 
 def categorize(title: str) -> str:
     """제목을 보고 카테고리를 결정한다(기본값 → 규칙으로 덮어쓰기)."""
@@ -216,7 +223,7 @@ def fetch_rss_items(limit: int | None = None):
 
     items = []
     for entry in feed.entries:
-        title = entry.get("title", "").strip()
+        title = sanitize_title(entry.get("title", "").strip())
         link = entry.get("link", "").strip()
         author = entry.get("author", None)
         pubdate = entry.get("published", None) or entry.get("pubDate", None)

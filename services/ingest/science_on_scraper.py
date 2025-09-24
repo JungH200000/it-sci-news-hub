@@ -4,6 +4,7 @@ import re
 import sys
 import json
 from datetime import datetime
+from urllib.parse import urlparse, urljoin
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -11,6 +12,25 @@ from bs4 import BeautifulSoup, Tag
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 DEFAULT_SOURCE = "scienceON"
+
+# --- 카테고리 규칙 (source 기본값 + 제목 키워드 덮어쓰기) ---
+CATEGORY_DEFAULT = "과학기술"
+CATEGORY_RULES = [
+    (re.compile(r"(AI|인공지능|GPT|LLM|딥러닝)", re.I), "AI"),
+    (re.compile(r"(보안|해킹|유출|취약|랜섬)", re.I), "보안"),
+    (re.compile(r"(반도체|칩|파운드리)", re.I), "반도체"),
+    (re.compile(r"(로봇|로보틱스)", re.I), "로봇"),
+    (re.compile(r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제)", re.I), "생명과학"),
+]
+
+def categorize(title: str, fallback: str | None = None) -> str:
+    base = fallback or CATEGORY_DEFAULT
+    if not title:
+        return base
+    for pattern, label in CATEGORY_RULES:
+        if pattern.search(title):
+            return label
+    return base
 
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
@@ -191,6 +211,145 @@ def fetch_fallback_summary_from_link(link: str) -> str:
             return clean_text(m["content"])
     return ""
 
+# ---------- image helpers (NEW) ----------
+
+FIRST_IMAGE_CACHE: dict[str, str] = {}
+
+def _parse_srcset_best(srcset: str) -> str:
+    """
+    srcset에서 가장 큰 w를 가진 이미지 URL 반환. 실패 시 빈 문자열.
+    """
+    best_url, best_w = "", -1
+    for part in srcset.split(","):
+        chunk = part.strip()
+        if not chunk:
+            continue
+        # "url 777w" 형태
+        m = re.match(r"(.+?)\s+(\d+)w", chunk)
+        if m:
+            url = m.group(1).strip()
+            try:
+                w = int(m.group(2))
+            except ValueError:
+                w = -1
+        else:
+            # w 표기가 없으면 마지막 것을 우선시
+            url, w = chunk, 0
+        if w >= best_w:
+            best_url, best_w = url, w
+    return best_url.strip()
+
+def _img_tag_best_src(img: Tag, base: str) -> str:
+    """
+    <img> 태그에서 쓸만한 src를 고른 뒤 절대 URL로 변환.
+    레이지로드(data-src, data-original, data-lazy-src)와 srcset 모두 고려.
+    """
+    if not isinstance(img, Tag):
+        return ""
+    cand = ""
+    # 1) srcset 최우선(가장 큰 사이즈)
+    srcset = img.get("srcset") or img.get("data-srcset") or ""
+    if srcset:
+        cand = _parse_srcset_best(srcset)
+    # 2) 레이지로드 속성들
+    if not cand:
+        for key in ("data-original", "data-src", "data-lazy-src", "data-orig-src"):
+            if img.get(key):
+                cand = img.get(key).strip()
+                break
+    # 3) 일반 src
+    if not cand:
+        cand = (img.get("src") or "").strip()
+    # data:image 제외
+    if cand.startswith("data:"):
+        return ""
+    return urljoin(base, cand) if cand else ""
+
+def _meta_image(ss: BeautifulSoup, base: str) -> str:
+    for sel in [
+        "meta[property='og:image'][content]",
+        "meta[name='twitter:image'][content]",
+        "meta[name='twitter:image:src'][content]",
+    ]:
+        m = ss.select_one(sel)
+        if m and m.get("content"):
+            val = m["content"].strip()
+            if val and not val.startswith("data:"):
+                return urljoin(base, val)
+    return ""
+
+def _first_img_generic(ss: BeautifulSoup, base: str) -> str:
+    # 본문 쪽의 첫 번째 img
+    for img in ss.find_all("img"):
+        src = _img_tag_best_src(img, base)
+        if src:
+            return src
+    return ""
+
+def _domain(url: str) -> str:
+    try:
+        return urlparse(url).netloc.lower()
+    except Exception:
+        return ""
+
+def _extract_first_image_from_article(url: str) -> str:
+    """
+    도메인별 규칙 → 메타 태그 → 일반 img 순서.
+    """
+    if url in FIRST_IMAGE_CACHE:
+        return FIRST_IMAGE_CACHE[url]
+
+    try:
+        r = session.get(url, timeout=20)
+        r.raise_for_status()
+    except Exception:
+        FIRST_IMAGE_CACHE[url] = ""
+        return ""
+    if not r.encoding or r.encoding.lower() in ("iso-8859-1", "us-ascii"):
+        r.encoding = r.apparent_encoding
+    ss = BeautifulSoup(r.text, "lxml")
+    base = url
+
+    host = _domain(url)
+
+    # 1) Dongascience
+    if "dongascience.com" in host:
+        node = ss.select_one("div.pic_c img") or ss.select_one("div.pic img")
+        if node:
+            out = _img_tag_best_src(node, base)
+            if out:
+                FIRST_IMAGE_CACHE[url] = out
+                return out
+
+    # 2) SciTechDaily
+    if "scitechdaily.com" in host:
+        node = ss.select_one("figure img")
+        if node:
+            out = _img_tag_best_src(node, base)
+            if out:
+                FIRST_IMAGE_CACHE[url] = out
+                return out
+
+    # 3) TechXplore
+    if "techxplore.com" in host:
+        node = ss.select_one("figure.article-img img") or ss.select_one("article figure img")
+        if node:
+            out = _img_tag_best_src(node, base)
+            if out:
+                FIRST_IMAGE_CACHE[url] = out
+                return out
+
+    # 4) 메타 태그
+    og = _meta_image(ss, base)
+    if og:
+        FIRST_IMAGE_CACHE[url] = og
+        return og
+
+    # 5) 일반 이미지
+    anyimg = _first_img_generic(ss, base)
+    FIRST_IMAGE_CACHE[url] = anyimg
+    return anyimg
+
 ## ---------- date and source ----------
 
 def extract_date_and_source(raw_text: str) -> tuple[str, str]:
@@ -203,12 +362,9 @@ def extract_date_and_source(raw_text: str) -> tuple[str, str]:
         return "", ""
     source = m.group(1).strip()
     yyyy, mm, dd = int(m.group(2)), int(m.group(3)), int(m.group(4))
-    # 연도 보정: 0~99 → 2000+연도 (예: 25 → 2025), 100~999 → 2000+연도가 과하면 상황에 맞게 조정
     if yyyy < 100:
         yyyy += 2000
     elif 100 <= yyyy < 1000:
-        # 대부분 오탈자(예: 025) 케이스만 존재하므로 100~999는 드물다.
-        # 필요하면 규칙 확장 가능. 일단 2000대가 아니면 2000 더하지 않음.
         pass
 
     date_str = f"{yyyy:04d}-{mm:02d}-{dd:02d}"
@@ -324,7 +480,7 @@ def parse_detail(detail_url: str, use_external_fallback: bool = False):
         # 🔹 요약 범위에서 날짜/출처 스캔 (제목 p 안에 없을 때 대비)
         date, source = extract_date_source_near(root, p, end)
 
-        # 그래도 못 찾았고, 제목 raw에 있는 경우엔 보조 추출 (기존 함수 그대로 활용 가능)
+        # 그래도 못 찾았고, 제목 raw에 있는 경우엔 보조 추출
         if not date or not source:
             title_raw = p.get_text(" ", strip=True)
             d2, s2 = extract_date_and_source(title_raw)
@@ -335,12 +491,16 @@ def parse_detail(detail_url: str, use_external_fallback: bool = False):
         if not summary and use_external_fallback:
             summary = fetch_fallback_summary_from_link(link)
 
+        # 4) 기사 첫 이미지 (NEW)
+        thumbnail = _extract_first_image_from_article(link)
+
         items.append({
             "title": title,
             "link": link,
             "summary": summary,
             "date": date,
-            "original_source": source,
+            "source": source,
+            "thumbnail": thumbnail,  # ← 추가
         })
 
     return items
@@ -428,6 +588,10 @@ def crawl_from_list(pages: int = 1, limit: int | None = None, use_external_fallb
                 continue
             seen_links.add(d["link"])
 
+            source_name = d.get("source") or DEFAULT_SOURCE
+
+            category = categorize(d.get("title"), CATEGORY_DEFAULT)
+
             results.append({
                 "id": sha1_hex(f"{DEFAULT_SOURCE}:{week_key}:{d['title']}:{d['link']}"),
                 "title": d["title"],
@@ -435,11 +599,10 @@ def crawl_from_list(pages: int = 1, limit: int | None = None, use_external_fallb
                 "summary": summary_text,
                 "week": week_key,
                 "date": d.get("date") or (list_date.replace(".", "-") if list_date else ""),
-                "source": DEFAULT_SOURCE,
-                "category": "과학기술",
-                "original_source": d.get("original_source"),
+                "source": source_name,
+                "category": category,
                 "period_label": period_label,
-                "trendPromoNo": li["no"],
+                "thumbnail": d.get("thumbnail") or None,
             })
     return results
 
