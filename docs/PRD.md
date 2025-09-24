@@ -415,6 +415,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 - `category`: 소스 기본값 → 제목 키워드 덮어쓰기
 
 **Weekly**: `axios + cheerio` → 추출 → `weekly_articles` UPSERT (원문 출처·썸네일 유지)
+  - `services/ingest/run_ingest.py` 스크립트가 스크래핑 결과를 Supabase REST로 upsert
 
 <!-- PRD-10.2-6 -->
 

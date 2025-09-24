@@ -77,6 +77,7 @@
 - [ ] 스케줄러 **옵션 확정**
   - **GitHub Actions(권장)**: KST 06:00/월 08:00 → **UTC 21:00/23:00** 매핑 _(ref: PRD-10.3)_
   - (대안) Supabase Scheduler
+  - `ingest-daily.yml`, `ingest-weekly.yml` 워크플로가 `services/ingest/run_ingest.py`를 호출해 자동 upsert 수행
 
 - [ ] CI: lint/test/build, API smoke test, ingest dry-run
 - [ ] 배포: Web(Vercel), **API/ingest 별도 호스팅**(Railway/Render/Fly/Heroku/서버)
