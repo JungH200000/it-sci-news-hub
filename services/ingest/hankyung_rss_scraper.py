@@ -105,8 +105,10 @@ def has_keyword(texts: Iterable[str | None], keywords: set[str]) -> bool:
 
 
 def is_relevant(*texts: str | None) -> bool:
+    """
     if not has_keyword(texts, WHITELIST_KEYWORDS):
         return False
+    """
     # 블랙리스트 키워드가 포함되면 제외
     if has_keyword(texts, BLACKLIST_KEYWORDS):
         return False
