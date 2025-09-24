@@ -373,6 +373,8 @@ main {
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.4;
+  margin-top: 5px;
+  margin-bottom: 0px;
 }
 
 .article-card__title a {
@@ -382,6 +384,7 @@ main {
 .article-card__summary {
   color: var(--text-primary);
   line-height: 1.6;
+  margin-top: 5px;
 }
 
 .load-more {
