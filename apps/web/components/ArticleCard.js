@@ -2,14 +2,18 @@
 export default function ArticleCard({ article, isWeekly = false, registerRef }) {
   if (!article) return null;
   const { id, title, summary, link, source, category, thumbnail, period_label, published_at, date, week } = article;
+  const normalizedThumbnail = typeof thumbnail === 'string' ? thumbnail.trim() : thumbnail;
+  const hasThumbnail = Boolean(normalizedThumbnail);
+  const resolvedThumbnail = resolveThumbnail(normalizedThumbnail, isWeekly);
   const metaDate = isWeekly ? (period_label || week) : formatDateTime(published_at || date);
   return (
     <article ref={registerRef ? registerRef(id) : null} className="article-card" tabIndex={-1}>
       <img
-        src={resolveThumbnail(thumbnail, isWeekly)}
-        alt={isWeekly ? '주간 뉴스 썸네일' : '일일 뉴스 썸네일'}
+        src={resolvedThumbnail}
+        alt={hasThumbnail ? (isWeekly ? '주간 뉴스 썸네일' : '일일 뉴스 썸네일') : '플레이스홀더 이미지'}
         className="article-card__thumbnail"
         loading="lazy"
+        data-placeholder={hasThumbnail ? 'false' : 'true'}
       />
       <header className="article-card__meta">
         <span>{source}</span>

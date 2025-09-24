@@ -105,6 +105,7 @@ export async function getSearchResults(params) {
       category: row.category,
       sort_time: row.sort_time,
       rank: row.rank,
+      thumbnail: row.thumbnail,
     };
     if (row.kind === 'daily') {
       daily.push({ ...base, date: row.date_key, published_at: row.published_at });
