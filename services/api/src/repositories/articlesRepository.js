@@ -70,7 +70,7 @@ export async function fetchWeeklyArticles({ week, category, offset, limit }) {
 
   const baseWhere = filters.length ? `where ${filters.join(' and ')}` : '';
   const listSql = `
-    select id, source, title, summary, link, category, period_label, created_at
+    select id, week, source, title, summary, link, category, period_label, created_at, thumbnail
     from public.weekly_articles
     ${baseWhere}
     order by created_at desc
@@ -87,8 +87,6 @@ export async function fetchWeeklyArticles({ week, category, offset, limit }) {
 
   const items = listResult.rows.map((row) => ({
     ...row,
-    week: row.week,
-    date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
   }));
 
   return {
