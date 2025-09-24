@@ -7,6 +7,7 @@
 
 ## 2. Phase 7 자동화 계획은?
 - GitHub Actions cron(Daily=`ingest-daily.yml`, Weekly=`ingest-weekly.yml`)으로 스케줄링하고, 실행 시 Supabase 환경 변수(Secrets) 주입 → Python 스크립트 실행 → `services/ingest/run_ingest.py`가 upsert까지 진행한다.
+- Secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`)는 Repository secrets에 등록해 Actions에서 환경변수로 전달한다.
 - 프런트/API 배포는 서버리스/온디맨드 환경(Vercel, Railway 등)을 사용해 필요할 때만 기동하고, Actions 로그+웹훅으로 실패 알림/관측성을 확보한다.
 
 ## 3. 서버를 항상 켜둘 수 없을 때의 대응은?
