@@ -3,9 +3,11 @@
 ### 루트 경로
 
 ```WSL
-python -m venv .venv
+sudo apt update
+sudo apt install python3-venv python3-pip -y
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirement.txt
 ```
 
 ## 스크래핑 테스트
@@ -14,7 +16,7 @@ pip install -r requirements.txt
 
 ```wsl
 cd services/ingest
-python hankyung_rss_scraper.py --limit 5 > hankyung_sample.json
+python hankyung_rss_scraper.py --limit 5 > hankyung_rss_sample.json
 ```
 
 ```wsl
