@@ -76,8 +76,8 @@
 
 <!-- PRD-5-1 -->
 
-- **Daily IT/Science**: RSS (한국경제 IT, ZDNet Korea, ScienceDaily)
-  ※ 초기 개발은 **한국경제 RSS 단일 소스**로 UI 완성 → 이후 소스 확장
+- **Daily IT/Science**: RSS (한국경제 IT, DataNet, ZDNet Korea, ScienceDaily)
+  ※ 초기 개발은 한국경제 RSS로 시작했으며 현재 DataNet까지 자동화 완료 → 이후 소스 확장
 
 <!-- PRD-5-2 -->
 
@@ -182,6 +182,10 @@ create index if not exists idx_weekly_week on weekly_articles(week);
 <!-- PRD-7.1-1 -->
 
 - 한국경제 IT → `IT/과학`
+
+<!-- PRD-7.1-1a -->
+
+- DataNet → `IT/과학`
 
 <!-- PRD-7.1-2 -->
 
@@ -376,6 +380,10 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 - 한국경제 IT: `https://www.hankyung.com/feed/it`
 
+<!-- PRD-10.1-1a -->
+
+- DataNet: `https://www.datanet.co.kr/rss/allArticle.xml`
+
 <!-- PRD-10.1-2 -->
 
 - ZDNet Korea: `https://feeds.feedburner.com/zdkorea`
@@ -383,7 +391,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 <!-- PRD-10.1-3 -->
 
 - ScienceDaily: `https://www.sciencedaily.com/rss/top/science.xml`
-  ※ 초기 UI 개발은 “한국경제 단일 소스”로 진행 후 확장
+  ※ 초기 UI 개발은 “한국경제 단일 소스”에서 시작 → 현재 DataNet까지 자동 수집, 이후 ZDNet/ScienceDaily 확장 예정
 
 **Weekly (스크래핑)**
 
@@ -393,7 +401,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 ### 2) 수집 방식
 
-**Daily**: `rss-parser` → 정규화 → Supabase `daily_articles` UPSERT
+- **Daily**: `rss-parser` → 정규화 → Supabase `daily_articles` UPSERT (한국경제 IT + DataNet 자동화, ZDNet/ScienceDaily 확장 예정)
 
 <!-- PRD-10.2-1 -->
 
@@ -416,7 +424,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 - `category`: 소스 기본값 → 제목 키워드 덮어쓰기
 
 **Weekly**: `axios + cheerio` → 추출 → `weekly_articles` UPSERT (원문 출처·썸네일 유지)
-  - `services/ingest/run_ingest.py` 스크립트가 스크래핑 결과를 Supabase REST로 upsert
+  - `services/ingest/run_ingest.py` 스크립트가 Daily(한국경제 IT + DataNet), Weekly(scienceON) 결과를 Supabase REST로 upsert
   - GitHub Actions 워크플로(`ingest-daily.yml`, `ingest-weekly.yml`)에서 `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` secret을 환경 변수로 주입해 자동 실행
 
 <!-- PRD-10.2-6 -->
@@ -752,7 +760,7 @@ where created_at < now() - interval '26 weeks';
 - **W2**
   - **DB 마이그레이션 실행** (테이블, 인덱스, 트리거, 뷰, RPC)
   - 데이터 수집 파이프라인 설계 & 샘플 적재
-    - Daily: 한국경제 RSS → Supabase 적재 (요약=규칙 기반 추출)
+    - Daily: 한국경제 + DataNet RSS → Supabase 적재 (요약=규칙 기반 추출, SHA1(link) 중복 방지)
     - Weekly: scienceON 스크래핑 목업/인터페이스 검증
 
   - **UI ↔ DB 연동**
