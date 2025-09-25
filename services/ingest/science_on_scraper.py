@@ -261,7 +261,7 @@ def find_summary_between(root: Tag, start: Tag, end: Tag | None) -> str:
 # fetch_fallback_summary_from_link: 기사 원문에서 메타 설명을 가져오는 보조 요약입니다.
 def fetch_fallback_summary_from_link(link: str) -> str:
     try:
-        rr = session.get(link, timeout=10)
+        rr = session.get(link, timeout=30)
         rr.raise_for_status()
     except Exception:
         return ""
@@ -369,7 +369,7 @@ def _extract_first_image_from_article(url: str) -> str:
         return FIRST_IMAGE_CACHE[url]
 
     try:
-        r = session.get(url, timeout=20)
+        r = session.get(url, timeout=30)
         r.raise_for_status()
     except Exception:
         FIRST_IMAGE_CACHE[url] = ""

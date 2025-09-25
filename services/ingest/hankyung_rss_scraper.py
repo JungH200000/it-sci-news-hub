@@ -224,7 +224,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
     - 예외가 발생하면 (None, None)을 반환한다.
     """
     try:
-        r = session.get(article_url, timeout=15)
+        r = session.get(article_url, timeout=30)
         r.raise_for_status()
     except Exception as e:
         print(f"[warn] failed to fetch article: {article_url} ({e})", file=sys.stderr)
@@ -285,7 +285,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
 # --- [RSS에서 항목 뽑기] ---
 def fetch_rss_items(limit: int | None = None):
     """RSS 피드를 내려받아 title/link/author/pubDate만 남긴 리스트를 반환한다."""
-    resp = session.get(RSS_URL, timeout=15)
+    resp = session.get(RSS_URL, timeout=30)
     resp.raise_for_status()
     feed = feedparser.parse(resp.content)
 

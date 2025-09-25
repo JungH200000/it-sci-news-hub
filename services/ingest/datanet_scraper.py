@@ -232,7 +232,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
     """DataNet 기사 페이지에서 (대표 이미지, 본문 텍스트, 메타 설명)을 추출한다."""
 
     try:
-        resp = session.get(article_url, timeout=15)
+        resp = session.get(article_url, timeout=30)
         resp.raise_for_status()
     except Exception as exc:
         print(f"[warn] failed to fetch article: {article_url} ({exc})", file=sys.stderr)
@@ -287,7 +287,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
 def fetch_rss_items(limit: int | None = None) -> list[dict]:
     """RSS 피드를 내려받아 필요한 필드를 추린 리스트를 반환한다."""
 
-    resp = session.get(RSS_URL, timeout=15)
+    resp = session.get(RSS_URL, timeout=30)
     resp.raise_for_status()
     feed = feedparser.parse(resp.content)
 
