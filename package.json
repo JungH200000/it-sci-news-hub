@@ -1,6 +1,9 @@
 {
   "name": "it-sci-news-hub",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "apps/*",
     "services/*"

@@ -54,8 +54,24 @@ export function createApp() {
       },
     })
   );
+
+  const allowlist = [
+    process.env.ALLOWED_ORIGINS, // Vercel 배포 도메인
+    'http://localhost:3000', // 로컬 개발용
+  ];
+
+  const corsOptions = {
+    origin: function (origin, callback) {
+      if (!origin || allowlist.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS blocked: ' + origin));
+      }
+    },
+  };
+
+  app.use(cors(corsOptions));
   app.use(helmet());
-  app.use(cors());
   app.use(compression());
   app.use(express.json({ limit: '1mb' }));
 
