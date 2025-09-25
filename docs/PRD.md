@@ -141,7 +141,7 @@ create unique index if not exists uniq_daily_link on daily_articles(link);
 | id           | text (PK)   | `SHA1(source+week+title+link)` |
 | week         | text        | YYYY-MM-N (예: 2025-09-3)      |
 | period_label | text        | UI 표시용 (“2025년 9월 3주차”) |
-| source       | text        | 원 출처 (예: 동아사이언스)      |
+| source       | text        | 원 출처 (예: 동아사이언스)     |
 | title        | text        | 제목                           |
 | summary      | text        | 요약                           |
 | link         | text        | 원문 링크                      |
@@ -424,8 +424,9 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 - `category`: 소스 기본값 → 제목 키워드 덮어쓰기
 
 **Weekly**: `axios + cheerio` → 추출 → `weekly_articles` UPSERT (원문 출처·썸네일 유지)
-  - `services/ingest/run_ingest.py` 스크립트가 Daily(한국경제 IT + DataNet), Weekly(scienceON) 결과를 Supabase REST로 upsert
-  - GitHub Actions 워크플로(`ingest-daily.yml`, `ingest-weekly.yml`)에서 `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` secret을 환경 변수로 주입해 자동 실행
+
+- `services/ingest/run_ingest.py` 스크립트가 Daily(한국경제 IT + DataNet), Weekly(scienceON) 결과를 Supabase REST로 upsert
+- GitHub Actions 워크플로(`ingest-daily.yml`, `ingest-weekly.yml`)에서 `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` secret을 환경 변수로 주입해 자동 실행
 
 <!-- PRD-10.2-6 -->
 
@@ -453,7 +454,6 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 > - **시간 매핑**:
 >   - Daily 06:00 **KST** = **전날 21:00 UTC**
 >   - Weekly 월 08:00 **KST** = **일 23:00 UTC**
->
 > - **환경 변수**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `TZ=Asia/Seoul` (레포 secrets)
 > - **실행 단위**: `fetch:daily`, `fetch:weekly` **별도 스텝**으로 분리
 
@@ -736,6 +736,10 @@ where created_at < now() - interval '26 weeks';
 
 - 저작권/이용약관 → 원문 링크·출처 명시, 각 사이트 `robots.txt` 준수
 - 이미지/텍스트 재사용 이슈 → MVP 단계에서는 원문 썸네일 제거 또는 대체 이미지 사용, 상업화 시 언론사 API/라이선스 체결 또는 AI 생성 이미지·자체 제작 비주얼 도입 검토
+
+<!-- PRD-19-4 -->
+
+- GitHub Actions은 schedule 실행을 best-effort로 처리해서 최대 30분 지연될 수 있다.
 
 ---
 
