@@ -56,7 +56,7 @@ export function createApp() {
   );
 
   const allowlist = [
-    'https://it-sci-news-hub-web.vercel.app/',
+    'https://it-sci-news-hub-web.vercel.app',
     'http://localhost:3000', // 로컬 개발용
   ];
 
