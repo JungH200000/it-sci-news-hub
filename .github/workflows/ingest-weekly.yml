@@ -28,4 +28,4 @@ jobs:
           pip install -r requirement.txt
 
       - name: Run weekly ingest
-        run: python services/ingest/run_ingest.py weekly --pages 1 --limit 40
+        run: python services/ingest/run_ingest.py weekly --pages 1 --limit 4

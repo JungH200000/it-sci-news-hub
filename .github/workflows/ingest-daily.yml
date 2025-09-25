@@ -30,4 +30,4 @@ jobs:
           pip install -r requirement.txt
 
       - name: Run daily ingest (Hankyung + DataNet)
-        run: python services/ingest/run_ingest.py daily --limit 50
+        run: python services/ingest/run_ingest.py daily --limit 30
