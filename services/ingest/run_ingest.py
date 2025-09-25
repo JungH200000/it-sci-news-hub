@@ -118,7 +118,7 @@ def chunk(iterable: List[Dict[str, Any]], size: int) -> Iterable[List[Dict[str, 
         yield iterable[idx : idx + size]
 
 
-def upsert(table: str, rows: List[Dict[str, Any]]) -> None:
+def upsert(table: str, rows: List[Dict[str, Any]], conflict_target: str = "id") -> None:
     """Supabase REST API를 사용해 지정한 테이블에 UPSERT 한다."""
     if not rows:
         print(f"No rows to upsert for {table}.")
@@ -131,7 +131,7 @@ def upsert(table: str, rows: List[Dict[str, Any]]) -> None:
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates",
     }
-    params = {"on_conflict": "id"}
+    params = {"on_conflict": conflict_target}
 
     total = 0
     for batch in chunk(rows, CHUNK_SIZE):
@@ -208,7 +208,7 @@ def ingest_weekly(pages: int, limit: int, dry_run: bool) -> None:
     if dry_run:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
-    upsert("weekly_articles", payload)
+    upsert("weekly_articles", payload, conflict_target="week,link")
 
 
 def main() -> None:
