@@ -55,13 +55,8 @@ export function createApp() {
     })
   );
 
-  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
   const allowlist = [
-    ...envOrigins,
+    'https://it-sci-news-hub-web.vercel.app/',
     'http://localhost:3000', // 로컬 개발용
   ];
 
