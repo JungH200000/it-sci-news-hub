@@ -1,10 +1,4 @@
-#!/usr/bin/env python3
-"""Ingestion orchestrator for Phase 7 automation.
-
-This script runs the existing scraper CLI tools and upserts the results into
-Supabase via the PostgREST API. It is designed to be invoked from CI (e.g.,
-GitHub Actions) and keeps stdout concise for easy log inspection.
-"""
+"""일간/주간 스크레이퍼를 실행해 Supabase에 데이터를 적재하는 자동화 스크립트."""
 
 from __future__ import annotations
 
@@ -25,10 +19,11 @@ CHUNK_SIZE = 200
 
 
 class IngestError(RuntimeError):
-    """Raised when scraping or upserting fails."""
+    """스크래핑 또는 Supabase 적재 과정에서 문제가 발생했음을 나타내는 예외."""
 
 
 def ensure_env() -> None:
+    """필수 환경 변수가 모두 설정되어 있는지 확인한다."""
     missing: List[str] = []
     if not SUPABASE_URL:
         missing.append("SUPABASE_URL")
@@ -41,7 +36,7 @@ def ensure_env() -> None:
 
 
 def run_command(cmd: List[str]) -> str:
-    """Run external command and return stdout text."""
+    """외부 명령을 실행하고 표준 출력 결과를 문자열로 반환한다."""
     try:
         result = subprocess.run(
             cmd,
@@ -58,6 +53,7 @@ def run_command(cmd: List[str]) -> str:
 
 
 def parse_json_lines(raw: str) -> List[Dict[str, Any]]:
+    """스크레이퍼 결과 문자열을 JSON 객체 리스트로 변환한다."""
     stripped = raw.strip()
     if not stripped:
         return []
@@ -87,6 +83,7 @@ def parse_json_lines(raw: str) -> List[Dict[str, Any]]:
 
 
 def map_daily(record: Dict[str, Any]) -> Dict[str, Any]:
+    """일간 기사 레코드를 Supabase 테이블 구조에 맞게 가공한다."""
     return {
         "id": record.get("id"),
         "date": record.get("date"),
@@ -101,6 +98,7 @@ def map_daily(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def map_weekly(record: Dict[str, Any]) -> Dict[str, Any]:
+    """주간 기사 레코드를 Supabase 테이블 구조에 맞게 가공한다."""
     return {
         "id": record.get("id"),
         "week": record.get("week"),
@@ -115,11 +113,13 @@ def map_weekly(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def chunk(iterable: List[Dict[str, Any]], size: int) -> Iterable[List[Dict[str, Any]]]:
+    """리스트를 지정한 크기의 묶음으로 잘라 순차적으로 반환한다."""
     for idx in range(0, len(iterable), size):
         yield iterable[idx : idx + size]
 
 
 def upsert(table: str, rows: List[Dict[str, Any]]) -> None:
+    """Supabase REST API를 사용해 지정한 테이블에 UPSERT 한다."""
     if not rows:
         print(f"No rows to upsert for {table}.")
         return
@@ -156,15 +156,37 @@ def upsert(table: str, rows: List[Dict[str, Any]]) -> None:
 
 
 def ingest_daily(limit: int, dry_run: bool) -> None:
-    cmd = [
-        sys.executable,
+    """여러 일간 스크레이퍼를 실행해 일간 기사를 적재한다."""
+
+    def run_daily_scraper(script_path: str) -> List[Dict[str, Any]]:
+        cmd = [
+            sys.executable,
+            script_path,
+            "--limit",
+            str(limit),
+        ]
+        output = run_command(cmd)
+        records = parse_json_lines(output)
+        return [map_daily(rec) for rec in records]
+
+    payload: List[Dict[str, Any]] = []
+    for script in (
         "services/ingest/hankyung_rss_scraper.py",
-        "--limit",
-        str(limit),
-    ]
-    output = run_command(cmd)
-    records = parse_json_lines(output)
-    payload = [map_daily(rec) for rec in records]
+        "services/ingest/datanet_scraper.py",
+    ):
+        payload.extend(run_daily_scraper(script))
+
+    if payload:
+        dedup: Dict[str, Dict[str, Any]] = {}
+        extras: List[Dict[str, Any]] = []
+        for item in payload:
+            identifier = item.get("id")
+            if identifier:
+                dedup[identifier] = item
+            else:
+                extras.append(item)
+        payload = list(dedup.values()) + extras
+
     if dry_run:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
@@ -172,6 +194,7 @@ def ingest_daily(limit: int, dry_run: bool) -> None:
 
 
 def ingest_weekly(pages: int, limit: int, dry_run: bool) -> None:
+    """scienceON 스크레이퍼를 실행해 주간 기사를 적재한다."""
     cmd = [
         sys.executable,
         "services/ingest/science_on_scraper.py",
@@ -189,17 +212,18 @@ def ingest_weekly(pages: int, limit: int, dry_run: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run ingest pipeline and upsert into Supabase")
+    """커맨드라인 인터페이스: daily/weekly 중 하나를 선택해 ingest 작업을 수행한다."""
+    parser = argparse.ArgumentParser(description="스크레이퍼를 실행해 Supabase에 적재합니다")
     subparsers = parser.add_subparsers(dest="mode", required=True)
 
-    daily_parser = subparsers.add_parser("daily", help="Ingest daily RSS articles")
-    daily_parser.add_argument("--limit", type=int, default=30, help="RSS items to fetch")
-    daily_parser.add_argument("--dry-run", action="store_true", help="Print payload without upserting")
+    daily_parser = subparsers.add_parser("daily", help="일간 RSS 기사 수집")
+    daily_parser.add_argument("--limit", type=int, default=30, help="가져올 RSS 항목 수")
+    daily_parser.add_argument("--dry-run", action="store_true", help="적재하지 않고 결과만 출력")
 
-    weekly_parser = subparsers.add_parser("weekly", help="Ingest weekly scienceON summaries")
-    weekly_parser.add_argument("--pages", type=int, default=1, help="Number of list pages to crawl")
-    weekly_parser.add_argument("--limit", type=int, default=30, help="Total items upper bound")
-    weekly_parser.add_argument("--dry-run", action="store_true", help="Print payload without upserting")
+    weekly_parser = subparsers.add_parser("weekly", help="주간 scienceON 기사 수집")
+    weekly_parser.add_argument("--pages", type=int, default=1, help="크롤링할 목록 페이지 수")
+    weekly_parser.add_argument("--limit", type=int, default=30, help="가져올 기사 최대 개수")
+    weekly_parser.add_argument("--dry-run", action="store_true", help="적재하지 않고 결과만 출력")
 
     args = parser.parse_args()
 
