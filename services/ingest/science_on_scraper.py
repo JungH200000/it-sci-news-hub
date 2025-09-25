@@ -1,4 +1,6 @@
-# -*- coding: utf-8 -*-
+# science_on_scraper.py
+"""scienceON 주간 트렌드 페이지를 수집해 구조화된 기사 JSON을 생성하는 스크립트."""
+
 import hashlib
 import re
 import sys
@@ -15,6 +17,7 @@ DEFAULT_SOURCE = "scienceON"
 
 # --- 카테고리 규칙 (source 기본값 + 제목 키워드 덮어쓰기) ---
 CATEGORY_DEFAULT = "과학기술"
+# `categorize`: 기사 제목에서 카테고리를 골라주는 간단한 규칙 함수입니다.
 CATEGORY_RULES = [
     (re.compile(r"(AI|인공지능|GPT|LLM|딥러닝)", re.I), "AI"),
     (re.compile(r"(보안|해킹|유출|취약|랜섬)", re.I), "보안"),
@@ -23,7 +26,9 @@ CATEGORY_RULES = [
     (re.compile(r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제)", re.I), "생명과학"),
 ]
 
+# categorize: 제목 문자열을 받아 scienceON에서 사용할 카테고리를 돌려줍니다.
 def categorize(title: str, fallback: str | None = None) -> str:
+    """Return a category label for a scienceON headline."""
     base = fallback or CATEGORY_DEFAULT
     if not title:
         return base
@@ -40,21 +45,27 @@ session.headers.update(HEADERS)
 BASE_DETAIL = "https://scienceon.kisti.re.kr/trendPromo/PORTrendPromoDtl.do?trendPromoNo={no}"
 
 # ---------- text utils ----------
+# clean_text: 들쑥날쑥한 공백을 정리해 깔끔한 문자열로 만듭니다.
 def clean_text(s: str) -> str:
+    """문자열 내부 공백을 정리해 깔끔한 텍스트를 만든다."""
     if not s: return ""
     s = s.replace("\xa0", " ").replace("\u00a0", " ")
     s = re.sub(r"\s+", " ", s)
     return s.strip()
 
 
+# sha1_hex: 문자열을 SHA1 해시로 변환해 안정적인 ID를 만듭니다.
 def sha1_hex(value: str) -> str:
+    """안정적인 ID 생성을 위해 SHA1 해시 값을 계산한다."""
     return hashlib.sha1(value.encode("utf-8")).hexdigest()
 
 
 SENTENCE_ENDINGS = ['다.', '다?', '다!', '.', '!', '?', '…']
 
 
+# ensure_sentence_boundary: 요약이 문장 중간에서 끊기지 않도록 마무리를 다듬습니다.
 def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
+    """문장 경계에 맞춰 요약을 자르고 필요한 경우 말줄임표를 붙인다."""
     text = (text or '').strip()
     if not text:
         return text
@@ -70,7 +81,9 @@ def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
     return text
 
 
+# truncate_summary: 문장 수·글자 수 제한을 적용해 짧은 요약문을 만듭니다.
 def truncate_summary(text: str, max_sentences: int = 3, max_chars: int = 180) -> str:
+    """문장 수와 글자 수 제한을 적용해 간결한 요약을 만든다."""
     if not text:
         return ""
     normalized = text.replace("\n", " ")
@@ -109,11 +122,13 @@ def truncate_summary(text: str, max_sentences: int = 3, max_chars: int = 180) ->
         return fallback or ""
     return summary
 
+# looks_like_title: 문자열이 기사 제목으로 보기 적당한지 확인합니다.
 def looks_like_title(t: str) -> bool:
     if not t or len(t) < 4: return False
     if t.lower() in {"new", "(new)"}: return False
     return True
 
+# smart_title_clean: 제목에서 불필요한 꼬리표나 긴 부분을 정리합니다.
 def smart_title_clean(s: str) -> str:
     # 불릿 이후/날짜 꼬리표 제거
     s = clean_text(s)
@@ -122,24 +137,29 @@ def smart_title_clean(s: str) -> str:
     if len(s) > 180: s = s[:180].rstrip()
     return s
 
+# strip_anchor_text: 태그 내부의 링크를 제거하고 텍스트만 뽑아냅니다.
 def strip_anchor_text(node: Tag) -> str:
     soup = BeautifulSoup(str(node), "lxml")
     for a in soup.find_all("a"): a.decompose()
     return soup.get_text(" ", strip=True)
 
+# has_korean: 문자열에 한글이 포함됐는지 판단합니다.
 def has_korean(t: str) -> bool:
     return bool(re.search(r"[가-힣]", t or ""))
 
 # ---------- page structure helpers ----------
+# is_title_paragraph: 현재 단락이 기사 제목 단락 형태인지 검사합니다.
 def is_title_paragraph(p: Tag) -> bool:
     return (p.name == "p" and "MsoNormal" in (p.get("class") or []) and p.find("a", href=True) is not None)
 
+# extract_link_from_p: 제목 단락에서 실제 기사 링크를 찾아냅니다.
 def extract_link_from_p(p: Tag) -> str:
     for a in p.find_all("a", href=True):
         href = (a.get("href") or "").strip()
         if href.startswith("http"): return href
     return ""
 
+# extract_title_from_p: 제목 단락에서 보기 좋은 제목 문구를 추출합니다.
 def extract_title_from_p(p: Tag) -> str:
     # a가 들어있는 가장 가까운 컨테이너(span/strong/em) 우선
     a = p.find("a", href=True)
@@ -160,6 +180,7 @@ def extract_title_from_p(p: Tag) -> str:
     title = strip_prefix_category(title)
     return title
 
+# strip_prefix_category: 제목 앞에 붙은 카테고리 표기를 제거합니다.
 def strip_prefix_category(title: str) -> str:
     """
     제목 맨 앞의 '- ( ... )' 또는 '( ... )' 패턴을 제거.
@@ -174,6 +195,7 @@ def strip_prefix_category(title: str) -> str:
 # ---------- summary finder ----------
 BULLET_START = re.compile(r"^[\s\u00A0]*[ㆍ·•\-]+[\s\u00A0]*")
 
+# split_first_bullet_line: 불릿 문단에서 첫 번째 항목만 잘라냅니다.
 def split_first_bullet_line(text: str) -> str:
     """
     긴 문단에 불릿이 여러 개 이어질 때, '첫 불릿'만 한 줄 요약으로.
@@ -185,6 +207,7 @@ def split_first_bullet_line(text: str) -> str:
     t = re.split(r"\s(?:[ㆍ·•\-]\s)", t, maxsplit=1)[0]
     return clean_text(t)
 
+# find_summary_between: 제목과 다음 제목 사이에서 요약 문장을 찾아줍니다.
 def find_summary_between(root: Tag, start: Tag, end: Tag | None) -> str:
     """
     start(제목 p) 이후부터 end(다음 제목 p) 이전까지 범위를 훑어 요약 후보를 찾는다.
@@ -234,6 +257,7 @@ def find_summary_between(root: Tag, start: Tag, end: Tag | None) -> str:
     return bullet_ko or body14_ko or body_ko or bullet_any or body14_any or body_any or ""
 
 # ---------- optional external fallback ----------
+# fetch_fallback_summary_from_link: 기사 원문에서 메타 설명을 가져오는 보조 요약입니다.
 def fetch_fallback_summary_from_link(link: str) -> str:
     try:
         rr = session.get(link, timeout=10)
@@ -253,6 +277,7 @@ def fetch_fallback_summary_from_link(link: str) -> str:
 
 FIRST_IMAGE_CACHE: dict[str, str] = {}
 
+# _parse_srcset_best: srcset 속성에서 가장 큰 이미지를 고릅니다.
 def _parse_srcset_best(srcset: str) -> str:
     """
     srcset에서 가장 큰 w를 가진 이미지 URL 반환. 실패 시 빈 문자열.
@@ -277,6 +302,7 @@ def _parse_srcset_best(srcset: str) -> str:
             best_url, best_w = url, w
     return best_url.strip()
 
+# _img_tag_best_src: <img> 태그 속 여러 후보 중 사용할 썸네일 URL을 선택합니다.
 def _img_tag_best_src(img: Tag, base: str) -> str:
     """
     <img> 태그에서 쓸만한 src를 고른 뒤 절대 URL로 변환.
@@ -303,6 +329,7 @@ def _img_tag_best_src(img: Tag, base: str) -> str:
         return ""
     return urljoin(base, cand) if cand else ""
 
+# _meta_image: 메타 태그 속 대표 이미지 주소를 추출합니다.
 def _meta_image(ss: BeautifulSoup, base: str) -> str:
     for sel in [
         "meta[property='og:image'][content]",
@@ -316,6 +343,7 @@ def _meta_image(ss: BeautifulSoup, base: str) -> str:
                 return urljoin(base, val)
     return ""
 
+# _first_img_generic: 본문에서 첫 번째 이미지를 찾아 썸네일로 씁니다.
 def _first_img_generic(ss: BeautifulSoup, base: str) -> str:
     # 본문 쪽의 첫 번째 img
     for img in ss.find_all("img"):
@@ -324,12 +352,14 @@ def _first_img_generic(ss: BeautifulSoup, base: str) -> str:
             return src
     return ""
 
+# _domain: URL에서 도메인 부분만 분리합니다.
 def _domain(url: str) -> str:
     try:
         return urlparse(url).netloc.lower()
     except Exception:
         return ""
 
+# _extract_first_image_from_article: 기사 페이지를 열어 썸네일 후보를 추출합니다.
 def _extract_first_image_from_article(url: str) -> str:
     """
     도메인별 규칙 → 메타 태그 → 일반 img 순서.
@@ -390,6 +420,7 @@ def _extract_first_image_from_article(url: str) -> str:
 
 ## ---------- date and source ----------
 
+# extract_date_and_source: '(출처 / 날짜)' 꼬리표에서 날짜와 출처를 뽑습니다.
 def extract_date_and_source(raw_text: str) -> tuple[str, str]:
     """
     (동아사이언스 / 2025.09.18.) 같은 꼬리표에서 source와 date 추출
@@ -415,6 +446,7 @@ DATE_SOURCE_PAT = re.compile(
 
 WEEK_LABEL_RE = re.compile(r"(\d{1,2})월\s*(\d)주차")
 
+# extract_date_source_near: 제목 근처에서 날짜·출처 정보를 다시 한 번 확인합니다.
 def extract_date_source_near(root: Tag, start: Tag, end: Tag | None) -> tuple[str, str]:
     """
     start(제목 p) 이후 ~ end(다음 제목 p) 이전 범위에서
@@ -443,6 +475,7 @@ def extract_date_source_near(root: Tag, start: Tag, end: Tag | None) -> tuple[st
     return "", ""
 
 
+# derive_week_key: 기사 목록 날짜와 주차 라벨로 주차 키를 계산합니다.
 def derive_week_key(list_date: str, period_label: str) -> str:
     """주차 키를 YYYY-MM-N 형태로 정규화."""
     year = None
@@ -477,6 +510,7 @@ def derive_week_key(list_date: str, period_label: str) -> str:
 
 
 # ---------- main parse ----------
+# parse_detail: scienceON 상세 페이지에서 여러 기사를 추출합니다.
 def parse_detail(detail_url: str, use_external_fallback: bool = False):
     try:
         r = session.get(detail_url, timeout=30)
@@ -549,6 +583,7 @@ LIST_URL = "https://scienceon.kisti.re.kr/trendPromo/PORTrendPromoList.do"
 
 JS_NO_RE = re.compile(r"fn_moveTrendPromoDtl\('(\d+)'\)")
 
+# fetch_html: 지정한 URL을 호출해 HTML 문자열을 돌려줍니다.
 def fetch_html(url: str, params: dict | None = None) -> str:
     r = session.get(url, params=params or {}, timeout=30)
     r.raise_for_status()
@@ -556,6 +591,7 @@ def fetch_html(url: str, params: dict | None = None) -> str:
         r.encoding = r.apparent_encoding
     return r.text
 
+# parse_list_page: 목록 페이지 HTML에서 상세 페이지 번호와 제목을 모읍니다.
 def parse_list_page(html: str) -> list[dict]:
     """
     목록 페이지에서 최신 게시글들의 trendPromoNo, 리스트 타이틀, 리스트 날짜 추출
@@ -585,6 +621,7 @@ def parse_list_page(html: str) -> list[dict]:
         })
     return out
 
+# crawl_from_list: 여러 목록 페이지를 돌며 주간 기사들을 모두 수집합니다.
 def crawl_from_list(pages: int = 1, limit: int | None = None, use_external_fallback: bool = False) -> list[dict]:
     """
     목록 페이지를 앞에서부터 `pages` 장 훑어 최신 글들의 상세를 크롤링.
@@ -647,6 +684,7 @@ def crawl_from_list(pages: int = 1, limit: int | None = None, use_external_fallb
 
 # ---------- CLI ----------
 
+# print_usage: 스크립트 사용 방법을 사용자에게 안내합니다.
 def print_usage():
     print("Usage:")
     print("  python science_on_scraper.py list               # 최신 10개(1페이지) 상세 크롤링")
@@ -654,6 +692,7 @@ def print_usage():
     print("  python science_on_scraper.py list 1 30          # 1페이지에서 최대 30개(넘치면 다음 페이지로) 크롤링")
     print("  python science_on_scraper.py 260                # 단일 상세 페이지만 (기존 동작)")
 
+# main: CLI 진입점으로 목록 모드와 단일 상세 모드를 분기합니다.
 def main():
     # 기존 단일 상세 동작 유지 + 목록 모드 추가
     if len(sys.argv) >= 2 and sys.argv[1].lower() == "list":

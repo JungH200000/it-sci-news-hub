@@ -1,9 +1,5 @@
 # hankyung_rss_scraper.py
-# Usage:
-#   pip install requests feedparser beautifulsoup4 lxml
-#   python3 hankyung_rss_scraper.py --limit 10
-#
-# Output: JSON Lines (stdout) — 한 줄당 한 기사
+"""한국경제 IT RSS를 수집해 Supabase 적재용 JSON Lines 형태로 가공하는 스크립트."""
 # Fields: id, source, title, link, author, published_at(UTC ISO), date(KST), thumbnail, body, category
 
 import argparse
@@ -19,7 +15,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 import feedparser
 from bs4 import BeautifulSoup
-# (BeautifulSoup은 여러 파서를 지원하는데, 아래에서 'lxml' 파서를 지정할 거야)
+# BeautifulSoup은 여러 파서를 지원하지만 여기서는 'lxml'을 사용합니다.
 
 # --- [상수 설정] ---
 RSS_URL = "https://www.hankyung.com/feed/it"
@@ -32,7 +28,7 @@ retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 50
 session.mount("https://", HTTPAdapter(max_retries=retries))
 session.mount("http://", HTTPAdapter(max_retries=retries))
 session.headers.update({
-    # 정상적인 브라우저 UA를 주면 차단/리디렉션 가능성↓
+    # 일반 브라우저 UA를 사용해 차단·리디렉션 가능성을 낮춥니다.
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -62,6 +58,7 @@ BLACKLIST_KEYWORDS = {
 }
 
 def sanitize_title(value: str) -> str:
+    """RSS에서 내려온 제목에서 이스케이프 문자와 큰따옴표를 제거한다."""
     if not value:
         return ""
     cleaned = value.replace('\\', '')
@@ -80,11 +77,13 @@ def categorize(title: str) -> str:
 
 
 def _normalize(text: str | None) -> str:
+    """텍스트를 소문자로 변환하고 `None`이면 빈 문자열을 돌려준다."""
     if not text:
         return ""
     return text.lower()
 
 def is_relevant(*texts: str | None) -> bool:
+    """텍스트에 블랙리스트 키워드가 포함되어 있지 않을 때만 True를 반환한다."""
     # 블랙리스트 키워드가 포함되면 제외
     for raw in texts:
         normalized = _normalize(raw)
@@ -100,6 +99,7 @@ SENTENCE_ENDINGS = ['다.', '다?', '다!', '.', '!', '?', '…']
 
 
 def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
+    """요약이 문장 중간에서 끊기지 않도록 마지막 완결 문장까지만 남긴다."""
     text = (text or '').strip()
     if not text:
         return text
@@ -162,6 +162,7 @@ def clean_text(s: str | None) -> str:
 
 
 def html_to_text(html: str | None) -> str:
+    """HTML 문자열에서 태그를 제거하고 순수 텍스트만 반환한다."""
     if not html:
         return ""
     soup = BeautifulSoup(html, "lxml")
@@ -213,10 +214,11 @@ def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> s
 # --- [기사 페이지 파싱] ---
 def extract_article_details(article_url: str) -> tuple[str | None, str | None, str | None]:
     """
-    한국경제 기사 페이지에서 (대표 이미지 URL, 본문 텍스트)를 추출.
+    한국경제 기사 페이지에서 (대표 이미지 URL, 본문 텍스트, 메타 설명)을 추출한다.
     - 대표 이미지: div.article-body > figure.article-figure > div.figure-img > img
-    - 본문 텍스트: div.article-body 내부에서 p/li 등 텍스트 블록을 모아 정리
-    - 이미지 없으면 og:image 메타태그를 폴백으로 사용
+    - 본문 텍스트: div.article-body 내부에서 p/li 등을 모아 정리
+    - 이미지가 없으면 og:image 메타태그를 폴백으로 사용
+    - 예외가 발생하면 (None, None)을 반환한다.
     """
     try:
         r = session.get(article_url, timeout=15)
@@ -237,8 +239,8 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
     if body:
         # a) Thumbnail within figure.article-figure > div.figure-img > img
         img = body.select_one("figure.article-figure div.figure-img img")
-        if img: # ← img 태그를 찾았다면
-            thumbnail_url = ( # ← src 또는 data-* 계열 속성에서 URL 취득
+        if img:  # img 태그가 있으면 src 후보를 모읍니다.
+            thumbnail_url = (
                 img.get("src")
                 or img.get("data-src")
                 or img.get("data-original")
@@ -261,10 +263,10 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
                 parts = [raw]
 
         if parts:
-            # Join with blank lines between paragraphs
+            # 문단 사이에 빈 줄을 넣어 가독성을 높입니다.
             body_text = "\n\n".join(text_collapse(p) for p in parts if p)
 
-    # Fallback thumbnail: og:image
+    # 대표 이미지가 없으면 og:image 메타 태그를 이용합니다.
     if not thumbnail_url:
         og = soup.select_one('meta[property="og:image"]')
         if og and og.get("content"):
@@ -279,7 +281,7 @@ def extract_article_details(article_url: str) -> tuple[str | None, str | None, s
 
 # --- [RSS에서 항목 뽑기] ---
 def fetch_rss_items(limit: int | None = None):
-    """RSS 피드를 내려받아 title/link/author/pubDate를 리스트로 반환(상한은 limit)."""
+    """RSS 피드를 내려받아 title/link/author/pubDate만 남긴 리스트를 반환한다."""
     resp = session.get(RSS_URL, timeout=15)
     resp.raise_for_status()
     feed = feedparser.parse(resp.content)
@@ -307,13 +309,14 @@ def fetch_rss_items(limit: int | None = None):
 
 # --- [메인 루틴] ---
 def main():
+    """스크립트를 직접 실행했을 때 RSS 항목을 순회하며 JSON Lines를 출력한다."""
     ap = argparse.ArgumentParser(description="Scrape Hankyung IT RSS + article details")
     ap.add_argument("--limit", type=int, default=10, help="Number of RSS items to process")
     args = ap.parse_args()
 
-    rss_items = fetch_rss_items(limit=args.limit) # ← RSS에서 N개 아이템 가져오기
+    rss_items = fetch_rss_items(limit=args.limit)  # RSS에서 지정한 개수만큼 읽어옵니다.
 
-    for it in rss_items:  # ← 각 아이템에 대해
+    for it in rss_items:  # 각 RSS 항목을 순회합니다.
         link = it["link"]
         title = it["title"]
         author = it.get("author")
@@ -327,7 +330,7 @@ def main():
         published_at = parse_pubdate_to_utc_iso(pubdate)  # UTC ISO
         date_kst = kst_bucket_date_from_utc_iso(published_at)  # YYYY-MM-DD (KST)
 
-        # ← 기사 페이지 들어가 대표 이미지/본문 추출
+        # 기사 페이지에서 대표 이미지와 본문을 추출합니다.
         thumb, body, meta_desc = extract_article_details(link)
         summary = summarize_text(body) if body else None
         if not summary:
