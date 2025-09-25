@@ -9,6 +9,7 @@ Reference: PRD-15-1
 - TZ=Asia/Seoul
 - LOG_LEVEL (optional, default `info`)
 - LOG_PRETTY (optional, default true in development)
+- ALLOWED_ORIGINS (comma-separated list of allowed frontend origins)
 
 Locations
 

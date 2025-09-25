@@ -55,8 +55,13 @@ export function createApp() {
     })
   );
 
+  const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   const allowlist = [
-    process.env.ALLOWED_ORIGINS, // Vercel 배포 도메인
+    ...envOrigins,
     'http://localhost:3000', // 로컬 개발용
   ];
 
