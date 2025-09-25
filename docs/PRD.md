@@ -609,6 +609,13 @@ scripts/.env
   SUPABASE_URL=
   SUPABASE_SERVICE_KEY=
   TZ=Asia/Seoul
+
+services/api/.env
+  DATABASE_URL=
+  SUPABASE_URL=
+  SUPABASE_SERVICE_KEY=
+  TZ=Asia/Seoul
+  ALLOWED_ORIGINS= # 프런트엔드 Origin, 콤마 구분(예: https://it-sci-news-hub-web.vercel.app)
 ```
 
 <!-- PRD-15-2 -->
@@ -780,10 +787,10 @@ where created_at < now() - interval '26 weeks';
 
 ---
 
-## 21. Tech Stack
+## 21. Tech Stack & Hosting
 
-- **Frontend**: Next.js (React 기반, Vercel 배포 가정)
-- **Backend API & Batch**: Node.js + Express
+- **Frontend**: Next.js (React 기반, Vercel 배포)
+- **Backend API & Batch**: Node.js + Express (Railway에 배포, Supabase 연결)
   - 구조: **Controller → Service → Repository** (쿼리/SQL 분리)
   - 문서화: **OpenAPI** 스펙(`/docs/openapi.yaml`) + **Swagger UI**
   - 보안/안정성: **helmet, cors, compression, express-rate-limit**
