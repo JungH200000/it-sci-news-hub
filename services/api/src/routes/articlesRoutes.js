@@ -1,3 +1,6 @@
+// 이 파일은 기사 관련 GET 엔드포인트를 정의하는 라우터입니다.
+// Express Router를 만들어 각 URL과 컨트롤러 함수를 연결합니다.
+
 import { Router } from 'express';
 import {
   handleDailyArticles,

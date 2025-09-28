@@ -1,3 +1,5 @@
+// 이 파일은 존재하지 않는 경로를 잡아내고 Express에서 발생한 에러를 공통 형식(JSON)으로 응답하는 미들웨어입니다.
+
 import { HttpError } from '../utils/httpErrors.js';
 
 export const notFoundHandler = (req, res, next) => {

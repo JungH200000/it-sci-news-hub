@@ -1,3 +1,6 @@
+// 이 파일은 PostgreSQL 연결 풀을 만들고 재사용할 수 있는 query/client 함수를 제공합니다.
+// 환경 변수에 있는 접속 정보를 활용해 여러 요청을 안정적으로 처리할 수 있게 풀 크기와 타임아웃을 설정합니다.
+
 import { Pool } from 'pg';
 import { config } from '../config.js';
 

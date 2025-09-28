@@ -1,3 +1,6 @@
+// 이 파일은 실제 데이터베이스와 직접 통신하는 저장소(Repository) 계층입니다.
+// SQL을 실행해 일간·주간 기사 목록, 검색 결과, 사이드바 정보 등을 가져옵니다.
+
 import { query } from '../db/pool.js';
 
 function normalizeToYmd(d) {

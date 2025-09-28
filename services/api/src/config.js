@@ -1,3 +1,6 @@
+// 이 파일은 .env 파일과 환경 변수를 읽어 서버에서 쓰기 쉬운 설정 객체로 정리합니다.
+// 숫자나 불린 값처럼 해석이 필요한 항목을 안전하게 변환해 다른 모듈이 그대로 사용할 수 있게 합니다.
+
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';

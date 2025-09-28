@@ -1,3 +1,6 @@
+// 이 파일은 Express 앱의 기본 설정을 모아둔 곳입니다. 헬멧, CORS, 압축, 요청 제한 같은 공통 보호 장치를 켜고 API 라우트를 연결합니다.
+// OpenAPI 문서를 `/docs`에서 볼 수 있게 하고, 마지막에 공통 에러 처리 미들웨어를 붙입니다.
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
