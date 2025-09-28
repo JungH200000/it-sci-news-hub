@@ -12,6 +12,25 @@ pip install -r requirement.txt
 
 ## 스크래핑 테스트
 
+### 과정
+
+터미널 실행
+
+➡️ main()
+➡️ 옵션 읽기(--limit)
+➡️ RSS에서 기사 링크 목록 뽑기
+➡️ 각 링크로 실제 기사 페이지 들어가서
+
+- 대표 이미지 찾기
+- 본문 텍스트 긁기
+- (필요시 메타 설명 보조로 사용)
+- 요약 만들기(2~3문장, ≤180자)
+- 카테고리 라벨 붙이기(제목 키워드)
+- 시간 표준화(UTC) + KST 날짜 버킷
+- 블랙리스트 필터로 잡음 제거
+
+➡️ 최종 결과를 “한 기사 = 한 줄 JSON” 으로 출력
+
 ### Daily (한국경제 IT, DataNet)
 
 ```wsl
@@ -32,7 +51,7 @@ python datanet_scraper.py --limit 5 > datanet_sample.json
 #### 자동 실행 (Daily)
 
 ```wsl
-python services/ingest/run_ingest.py daily --limit 50
+python services/ingest/run_ingest.py daily --limit 30
 ```
 
 - 한국경제 IT + DataNet 스크레이퍼를 순차 실행해 통합 결과를 `daily_articles`에 upsert 합니다. `--dry-run` 옵션으로 적재 없이 결과만 확인할 수 있습니다.
@@ -48,3 +67,11 @@ python science_on_scraper.py list 1 10 > scienceon_sample.json
 - 주요 필드: `id`, `week`, `period_label`, `title`, `summary`, `link`, `source`, `category`, `date`, `original_source`
 - `week` 형식: `YYYY-MM-N` (예: `2025-09-4`)
 - 요약 규칙 동일, 결측 시 `"요약 없음"`
+
+#### 자동 실행 (weekly)
+
+```wsl
+python services/ingest/run_ingest.py weekly --pages 1 --limit 4
+```
+
+- ScienceON 스크레이퍼를 실행해 통합 결과를 `daily_articles`에 upsert 합니다. `--dry-run` 옵션으로 적재 없이 결과만 확인할 수 있습니다.
