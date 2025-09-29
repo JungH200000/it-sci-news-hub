@@ -33,7 +33,19 @@
   - 수집(Ingest) → 저장(DB) → API → UI
   - 자동화된 데이터 흐름으로 안정적 제공
 
-- **비주얼**: 블록 다이어그램 (Python/GitHub Actions → Supabase → Express API → Next.js UI)
+- **비주얼**: 블록 다이어그램
+  - frontend : next.js기반 반응형 웹 인터페이스)
+  - backend : express api 서버 - daily와 weekly로 구분
+  - database : supabase postgreSQL
+  - automation : github actions
+  - 동작:
+    - 스크래핑 후 저장: Python/GitHub Actions → Supabase
+    - 카드 뉴스
+      - Next.js UI (daily or weekly 선택) → Express API (UI에서 선택한 것에 따라 daily or weekly 선택)
+      - Supabase (daily_articles or weekly_articles) → Express API → Next.js UI (카드 뉴스)
+    - search
+      - Next.js UI (search) → Express API (Supabase의 unified_articles 연결)
+      - Supabase (unified_articles) → Express API → Next.js UI (Search Results에 카드 뉴스 형태로 출력)
 
 ---
 
