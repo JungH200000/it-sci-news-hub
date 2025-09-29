@@ -38,7 +38,7 @@
 
 ## 5. MVP 범위
 
-- **Daily IT/Science 피드**: 한국경제 IT, DataNet RSS 소스를 자동 수집 (ZDNet Korea, ScienceDaily 연동은 확장 대상)
+- **Daily IT/Science 피드**: 네이버 IT/과학 뉴스, DataNet RSS 소스를 자동 수집 (ZDNet Korea, ScienceDaily 연동은 확장 대상)
 - **Weekly SciTech 피드**: scienceON 주간 뉴스 스크래핑 결과 제공
 - **자동 수집 배치**: Daily 1일 4회, Weekly 주 2회 GitHub Actions로 구동
 - **검색**: PostgreSQL FTS(`tsvector`) + `pg_trgm` 인덱스 조합
@@ -127,7 +127,7 @@
 | ------------ | ------------- | ---------------------------------------------- |
 | id           | text (PK)     | `SHA1(link)` 등의 고유 ID                      |
 | date         | date          | YYYY-MM-DD (KST 버킷)                          |
-| source       | text          | 출처 (예: 한국경제 IT)                         |
+| source       | text          | 출처 (예: 네이버 IT/과학)                      |
 | title        | text          | 제목                                           |
 | summary      | text          | 2~3줄 요약 (null 허용)                         |
 | link         | text (unique) | 원문 링크                                      |
@@ -174,7 +174,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 **소스별 기본값**
 
-- 한국경제 IT → `IT/과학`
+- 네이버 IT/과학 → `IT/과학`
 - DataNet → `IT/과학`
 - ZDNet Korea → `IT/기술`
 - ScienceDaily → `과학`
@@ -304,9 +304,9 @@ $$;
 
 ### 11.1 소스
 
-**Daily (RSS)**
+**Daily (스크래핑/RSS)**
 
-- 한국경제 IT: `https://www.hankyung.com/feed/it`
+- 네이버 IT/과학: `https://news.naver.com/section/105`
 - DataNet: `https://www.datanet.co.kr/rss/allArticle.xml`
 - ZDNet Korea: `https://feeds.feedburner.com/zdkorea` (확장 예정)
 - ScienceDaily: `https://www.sciencedaily.com/rss/top/science.xml` (확장 예정)
@@ -318,7 +318,7 @@ $$;
 ### 11.2 수집 방식
 
 - Python 스크립트(`services/ingest/*.py`)가 RSS/DOM 파싱 → 데이터 정규화 → Supabase REST API로 UPSERT
-- Daily: `hankyung_rss_scraper.py`, `datanet_scraper.py` → `run_ingest.py daily`
+- Daily: `naver_tech_scraper.py`, `datanet_scraper.py` → `run_ingest.py daily`
 - Weekly: `science_on_scraper.py` → `run_ingest.py weekly`
 - 요약: 규칙 기반 추출 요약 (2~3문장, 최대 180자, 실패 시 `summary = null`)
 - 카테고리: 소스 기본값 → 제목 키워드 덮어쓰기 로직 준수

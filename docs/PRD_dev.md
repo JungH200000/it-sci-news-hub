@@ -75,7 +75,7 @@
 
 <!-- PRD-5-1 -->
 
-- **Daily IT/Science 피드**: 한국경제 IT, DataNet RSS 소스를 자동 수집 (ZDNet Korea, ScienceDaily 연동은 확장 대상)
+- **Daily IT/Science 피드**: 네이버 IT/과학 뉴스, DataNet RSS 소스를 자동 수집 (ZDNet Korea, ScienceDaily 연동은 확장 대상)
 
 <!-- PRD-5-2 -->
 
@@ -273,7 +273,7 @@
 | ------------ | ------------- | ---------------------------------------------- |
 | id           | text (PK)     | `SHA1(link)` 등의 고유 ID                      |
 | date         | date          | YYYY-MM-DD (KST 버킷)                          |
-| source       | text          | 출처 (예: 한국경제 IT)                         |
+| source       | text          | 출처 (예: 네이버 IT/과학)                      |
 | title        | text          | 제목                                           |
 | summary      | text          | 2~3줄 요약 (null 허용)                         |
 | link         | text (unique) | 원문 링크                                      |
@@ -335,7 +335,7 @@ create index if not exists idx_weekly_summary_trgm on weekly_articles using gin 
 
 <!-- PRD-10-6a -->
 
-- 한국경제 IT → `IT/과학`
+- 네이버 IT/과학 → `IT/과학`
 
 <!-- PRD-10-6b -->
 
@@ -513,11 +513,11 @@ $$;
 
 <!-- PRD-11-1 -->
 
-**Daily (RSS)**
+**Daily (스크래핑/RSS)**
 
 <!-- PRD-11-1a -->
 
-- 한국경제 IT: `https://www.hankyung.com/feed/it`
+- 네이버 IT/과학: `https://news.naver.com/section/105`
 
 <!-- PRD-11-1b -->
 
@@ -547,7 +547,7 @@ $$;
 
 <!-- PRD-11-4 -->
 
-- Daily: `hankyung_rss_scraper.py`, `datanet_scraper.py` → `run_ingest.py daily`
+- Daily: `naver_tech_scraper.py`, `datanet_scraper.py` → `run_ingest.py daily`
 
 <!-- PRD-11-5 -->
 
