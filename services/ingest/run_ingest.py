@@ -185,9 +185,9 @@ def ingest_daily(limit: int, dry_run: bool) -> None: # `limit: 기사 몇 개 �
     payload: List[Dict[str, Any]] = []
 
     # scraper 파일 순회
+    # "services/ingest/hankyung_rss_scraper.py", 제외
     for script in (
         "services/ingest/naver_tech_scraper.py",
-        "services/ingest/hankyung_rss_scraper.py",
         "services/ingest/datanet_scraper.py",
     ):
         payload.extend(run_daily_scraper(script))
