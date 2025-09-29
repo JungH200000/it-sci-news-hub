@@ -15,7 +15,7 @@ from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from requests.adapters import HTTPAdapter, Retry
 
 NAVER_SECTION_URL = "https://news.naver.com/section/105"
@@ -185,16 +185,55 @@ def kst_bucket_date(dt: datetime | None) -> str | None:
     return dt.date().isoformat()
 
 
-def extract_body(article: BeautifulSoup) -> str | None:
-    container = article.select_one("article#dic_area")
-    if not container:
+def extract_body(soup: BeautifulSoup) -> str | None:
+    container = soup.select_one("div#newsct_article")
+    article = None
+    if container and container.name == "article":
+        article = container
+    elif container:
+        article = container.select_one("article#dic_area")
+    if not article:
+        article = soup.select_one("article#dic_area")
+    if not article:
         return None
-    for tag in container.select("script, style, aside"):
+
+    for tag in article.select(
+        "script, style, aside, figure, table, .media_end_copyright, .media_end_summary"
+    ):
         tag.decompose()
-    raw_text = container.get_text(" ", strip=True)
-    if not raw_text:
-        return None
-    return text_collapse(raw_text)
+
+    parts: list[str] = []
+    buffer: list[str] = []
+
+    def flush() -> None:
+        if not buffer:
+            return
+        merged = text_collapse(" ".join(buffer))
+        if merged:
+            parts.append(merged)
+        buffer.clear()
+
+    for node in article.children:
+        if isinstance(node, NavigableString):
+            text = text_collapse(str(node))
+            if text:
+                buffer.append(text)
+        else:
+            name = getattr(node, "name", "")
+            if name and name.lower() == "br":
+                flush()
+            else:
+                flush()
+
+    flush()
+
+    if not parts:
+        raw_text = article.get_text(" ", strip=True)
+        if not raw_text:
+            return None
+        return text_collapse(raw_text)
+
+    return "\n\n".join(parts)
 
 
 def extract_thumbnail(soup: BeautifulSoup) -> str | None:
