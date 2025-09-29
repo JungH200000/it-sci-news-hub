@@ -1,5 +1,4 @@
 -- 004_views.sql
--- Reference: PRD-16 (unified_articles view)
 
 begin;
 

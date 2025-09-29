@@ -1,5 +1,4 @@
 -- 002_indexes.sql
--- References: PRD-6 (recommended indexes), PRD-8 (search performance)
 
 begin;
 

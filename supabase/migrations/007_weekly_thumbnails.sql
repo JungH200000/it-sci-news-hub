@@ -1,6 +1,5 @@
 -- 007_weekly_thumbnails.sql
--- Purpose: add optional thumbnail column for weekly articles (align with Daily card UI)
--- References: PRD-6.2, PRD-9.3, PRD-12-5
+-- thumbnail column을 weekly_articles table에 추가
 
 begin;
 

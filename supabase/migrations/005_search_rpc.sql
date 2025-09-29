@@ -1,5 +1,5 @@
 -- 005_search_rpc.sql
--- Reference: PRD-16 (search_unified RPC with section caps)
+-- 사용자 검색 요청을 처리하는 검색 함수
 
 begin;
 

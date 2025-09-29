@@ -1,5 +1,5 @@
 -- 001_tables.sql
--- Reference: PRD-6 (Daily/Weekly schema)
+-- daily_articles table과 weekly articles table 생성
 
 begin;
 

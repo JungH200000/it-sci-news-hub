@@ -1,10 +1,5 @@
 -- 008_unified_thumbnail.sql
--- Purpose: expose thumbnail in unified_articles view and search_unified RPC
--- Notes:
--- - Must DROP function first (it depends on the view output)
--- - Then DROP and CREATE the view (column set changed)
--- - Then CREATE the function with new RETURNS TABLE (thumbnail added)
--- - Re-grant EXECUTE if your app roles need it
+-- weekly_articles에 새로 추가한 thumbnail column을 unified_articles view와 search_unified RPC에 추가
 
 begin;
 
@@ -69,11 +64,11 @@ from public.weekly_articles;
 
 -- 4) 새 함수 생성 (RETURNS TABLE에 thumbnail 포함)
 create function public.search_unified(
-  q text,
-  cat text default null,
-  d_since interval default '14 days',
-  max_results int default 50
-) returns table (
+  q text, -- 검색어
+  cat text default null, -- 카테고리
+  d_since interval default '14 days', -- 최근 n일 같은 기간 제한
+  max_results int default 50 -- 한 종류 당 최대 결과 수
+) returns table ( -- 검색 파라미터를 받어 결과를 table 형태로 반환
   kind text,
   date_key date,
   week_key text,
@@ -87,15 +82,16 @@ create function public.search_unified(
   link text,
   category text,
   thumbnail text,
-  rank float
+  rank float -- 검색 점수로 높을수록 검색어와 더 잘 맞음
 ) language sql
-  set search_path = public
-as $$
+  set search_path = public -- search_path를 pubilc으로 고정하여 public schema에서만 해석되도록 
+as $$ -- 본문 sql 시작
   with params as (
     select
       coalesce(nullif(trim(q), ''), '')::text as raw_q,
       websearch_to_tsquery('simple', coalesce(nullif(trim(q), ''), '')) as tsq
   ),
+  
   filtered as (
     select
       ua.kind,
@@ -111,18 +107,19 @@ as $$
       ua.link,
       ua.category,
       ua.thumbnail,
-      ts_rank(ua.tsv, params.tsq) as rank,
+      ts_rank(ua.tsv, params.tsq) as rank, -- tsv와 검색어 tsq의 일치 정도를 점수로 환산
       row_number() over (
         partition by ua.kind
         order by ts_rank(ua.tsv, params.tsq) desc, ua.sort_time desc
       ) as rn
-    from public.unified_articles ua
-    cross join params
-    where params.raw_q <> ''
-      and ua.tsv @@ params.tsq
-      and (ua.kind <> 'daily' or ua.date_key >= current_date - coalesce(d_since, '14 days'::interval))
+    from public.unified_articles ua -- unified_articles에서 기사 행을 가져와서 
+    cross join params -- 위에서 만든 params와 모든 행을 결합해, 아래의 조건식에서 `params.tsq`와 `params.raw_q`를 사용할 수 있게 한다.
+    where params.raw_q <> '' -- 빈 검색어면 결과 x
+      and ua.tsv @@ params.tsq -- FTS 매치(인덱스 사용) -> 검색어에 맞는 기사만
+      and (ua.kind <> 'daily' or ua.date_key >= current_date - coalesce(d_since, '14 days'::interval)) -- daily가 아닐 때는 그냥 통과, daily면 뒤의 조건 통과
       and (nullif(cat, '') is null or ua.category = cat)
   )
+  -- 최종 결과 선택 및 정렬
   select
     kind, date_key, week_key, sort_time, published_at, period_label,
     id, source, title, summary, link, category, thumbnail, rank
