@@ -11,14 +11,18 @@ export function useDailyArticles(date) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
 
+  // 날짜가 변경되면 useEffect가 즉시 반응
   useEffect(() => {
     if (!date) {
-      setItems([]);
-      setHasMore(false);
-      return;
+      // date가 없으면
+      setItems([]); // 목록을 비우고
+      setHasMore(false); // hasMore을 false로 만들고
+      return; // 종료
     }
 
     let cancelled = false;
+
+    // 초기 로드 : 1페이지를 가져옴
     async function loadInitial() {
       setLoading(true);
       setError(null);
@@ -53,6 +57,7 @@ export function useDailyArticles(date) {
     };
   }, [date]);
 
+  // '더보기' : 다음 페이지를 이어 붙임
   const loadMore = useCallback(async () => {
     if (!date || loading || loadingMore || !hasMore) {
       return null;
