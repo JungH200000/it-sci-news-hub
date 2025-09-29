@@ -68,6 +68,7 @@ SENTENCE_ENDINGS = ["다.", "다?", "다!", ".", "!", "?", "…"]
 
 
 def sanitize_title(value: str | None) -> str:
+    """RSS에서 내려온 제목에서 이스케이프 문자와 큰따옴표를 제거한다."""
     if not value:
         return ""
     cleaned = value.replace("\\", "").replace('"', "")
@@ -75,6 +76,7 @@ def sanitize_title(value: str | None) -> str:
 
 
 def categorize(title: str) -> str:
+    """제목을 보고 카테고리를 결정한다(기본값 → 규칙으로 덮어쓰기)."""
     cat = CATEGORY_DEFAULT
     if not title:
         return cat
@@ -85,12 +87,14 @@ def categorize(title: str) -> str:
 
 
 def _normalize(text: str | None) -> str:
+    """텍스트를 소문자로 변환하고 `None`이면 빈 문자열을 돌려준다."""
     if not text:
         return ""
     return text.lower()
 
 
 def is_relevant(*texts: str | None) -> bool:
+    """텍스트에 블랙리스트 키워드가 포함되어 있지 않을 때만 True를 반환한다."""
     for raw in texts:
         normalized = _normalize(raw)
         if not normalized:
@@ -102,43 +106,66 @@ def is_relevant(*texts: str | None) -> bool:
 
 
 def text_collapse(value: str) -> str:
+    """여러 공백/탭/제어 문자를 한 칸 공백으로 줄이고 양끝 공백 제거(본문 출력 품질 개선)."""
     return re.sub(r"[\s\u00A0]+", " ", value).strip()
 
 
 def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
+    """요약이 문장 중간에서 끊기지 않도록 마지막 완결 문장까지만 남긴다."""
     text = (text or "").strip()
     if not text:
         return text
+    
+    # 문장 끝 위치 찾기
     end_positions: list[int] = []
     for ending in SENTENCE_ENDINGS:
+        # 문자열에서 기호가 마지막으로 나온 위치를 찾음
         idx = text.rfind(ending)
         if idx != -1:
+            # 찾으면 기호의 끝 인덱스를 `end_positions`에 저장
             end_positions.append(idx + len(ending))
+    
+    # 마지막 문장 끝까지 자르기
     if end_positions:
+        # 가장 뒤쪽 문장 끝 위치를 기준으로 잘라냄
         return text[: max(end_positions)].strip()
     if truncated:
+        # 문장 끝 기호가 전혀 없고 `truncated=True`라면 마침표 등을 제거하고 `...`을 붙여 여기서 잘렸다고 표시
         return text.rstrip(".") + "…"
     return text
 
-
+# ---- Utils ----
 def sha1_hex(value: str) -> str:
+    """문자열을 SHA1 해시로 40자리 헥사 문자열로 변환(고유 ID 생성 용도)."""
     return hashlib.sha1(value.encode("utf-8")).hexdigest()
 
 
 def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> str | None:
+    """간단한 규칙 기반 요약: 앞쪽 문장 2~3개를 취하고 180자 내로 제한."""
+
+    # 1. 입력 검사 ➡️ 텍스트가 비어있으면 `None`
     if not text:
         return None
+    
+    # 2. 줄바꿈을 공백으로 변경 후 `. ? !` 같은 문장 마침 기호를 기준으로 문장을 나눔
     normalized = text.replace("\n", " ")
     candidates = re.split(r"(?<=[.!?\u3002\uFF01\uFF1F])\s+", normalized)
+
+    # 3. 앞 쪽 몇 문장만 추출
     sentences: list[str] = []
     for cand in candidates:
+        # 공백 정리
         cleaned = text_collapse(cand)
         if cleaned:
             sentences.append(cleaned)
         if len(sentences) >= max_sentences:
+            # 앞에서 최대 `max_sentences`개만 모음 ➡️ default = 3 문장
             break
+    
     if not sentences:
         return None
+    
+    # 4. 길이 제한(180자) 안에서 합치기
     selected: list[str] = []
     truncated = False
     for sent in sentences:
@@ -147,15 +174,24 @@ def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> s
             truncated = True
             break
         selected.append(sent)
+
+    # 5. 최종 요약 문자열 만들기
     if not selected:
+        # 문장을 하나도 못 붙힘 ➡️ 첫 문장 잘라서 사용
         truncated = True
         summary = sentences[0][:max_chars].strip()
     else:
+        # 문장을 붙였는데 180자를 넘으면 앞 부분만 잘라냄
         summary = " ".join(selected).strip()
         if len(summary) > max_chars:
             truncated = True
             summary = summary[:max_chars].strip()
+
+    # 6. 문장 끝 경계 정리
+    # 요약 문장이 중간에서 끊기지 않도록 `ensure_sentence_boundary`로 정리
     summary = ensure_sentence_boundary(summary, truncated)
+
+    # 실패하면 첫 문장을 잘라서라도 반환
     if not summary:
         fallback = ensure_sentence_boundary(sentences[0][:max_chars].strip(), True)
         return fallback or None
@@ -354,10 +390,16 @@ def take(iterable: Iterable[str], limit: int) -> list[str]:
             break
     return items
 
-
+# --- [메인 루틴] ---
 def main() -> None:
+    # "이 프로그램이 어떤 옵션을 받는지”를 설명하는 최상위 파서(메뉴판) 를 만듦.
+    # description= 은 -h/--help로 도움말을 볼 때 맨 위에 나오는 설명 문구
     parser = argparse.ArgumentParser(description="Scrape Naver IT/과학 articles")
+
+    # `--limit` 옵션으로 최대 몇 개를 처리할지 정함(default=20개)
     parser.add_argument("--limit", type=int, default=20, help="Number of articles to process")
+
+    #  사용자가 터미널에 입력한 옵션을 읽어와서 `args`에 담음
     args = parser.parse_args()
 
     try:
@@ -372,6 +414,7 @@ def main() -> None:
         if not doc:
             continue
         if not is_relevant(doc.get("title"), doc.get("summary"), doc.get("body")):
+            # 제목/요약 텍스트에 블랙리스트 키워드가 있으면 건너뜀
             continue
         print(json.dumps(doc, ensure_ascii=False))
         count += 1
