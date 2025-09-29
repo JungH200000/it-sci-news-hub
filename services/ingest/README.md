@@ -35,6 +35,11 @@ pip install -r requirement.txt
 
 ```wsl
 cd services/ingest
+python naver_tech_scraper.py --limit 5 > naver_tech_sample.json
+```
+
+```wsl
+cd services/ingest
 python hankyung_rss_scraper.py --limit 5 > hankyung_rss_sample.json
 ```
 
@@ -47,6 +52,7 @@ python datanet_scraper.py --limit 5 > datanet_sample.json
 - 주요 필드: `id`, `source`, `title`, `link`, `author`, `published_at`, `date`, `thumbnail`, `summary`, `body`, `category`
 - 요약 규칙: 2~3문장, 180자 이내 (결측 시 `"요약 없음"`)
 - 본문이 150자 미만인 기사는 자동 제외
+- 네이버 기사에는 `source`(원본 매체)와 `distributor`(제휴 포털) 필드가 함께 포함됩니다.
 
 #### 자동 실행 (Daily)
 
