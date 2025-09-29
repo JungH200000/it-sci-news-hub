@@ -199,57 +199,75 @@ def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> s
 
 
 def parse_article_datetime(value: str | None) -> datetime | None:
+    """네이버 기사 시간 문자열(`"2025-09-29 18:30:00"`)을 KST(Asia/Seoul) 타임존이 붙은 `datetime`으로 변경"""
     if not value:
         return None
     try:
-        dt = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")
-        return dt.replace(tzinfo=KST)
+        dt = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S") # 지정한 형식("%Y-%m-%d %H:%M:%S")을 가진 `datetime`으로 변환
+        # `dt`는 타임존 정보가 없는 native `datetime`
+        return dt.replace(tzinfo=KST) # 시간 자체는 변경하지 않고 타임존 정보만 붙임 : KST = 한국 시간 <= `replace`는 라벨을 붙인다고 생각하면 됨
+        # 2025-09-29 18:30:00+09:00
     except Exception:
         return None
 
 
 def to_utc_iso(dt: datetime | None) -> str | None:
+    """ `dt`를 ISO8601 문자열로 변경"""
     if not dt:
         return None
+    # `dt`를 UTC 타임존으로 변환(실제로 시각을 변환함)한 뒤 그 결과를 ISO 8601 문자열로 반환
     return dt.astimezone(timezone.utc).isoformat()
+    # 2025-09-29 18:30:00+09:00 -> 2025-09-29 09:30:00+00:00
 
 
 def kst_bucket_date(dt: datetime | None) -> str | None:
+    """ `dt`를 ISO 형식 문자열(`YYYY-MM-DD`)로 변환"""
     if not dt:
         return None
     return dt.date().isoformat()
+    # 여기서 사용하는 날짜는 `dt` 자체의 타임존 기준 -> `parse_article_datetime`에서 KST를 붙였으니 KST 기준
 
 
 def extract_body(soup: BeautifulSoup) -> str | None:
+    """기사 본문에 들어있는 <article> 블록을 찾아 스크립트/표/저작권 문구 같은 불필요한 요소를 지운 뒤, 깨끗한 텍스트만 반환"""
+    # `BeautifulSoup`으로 파싱된 문서에서 본문 텍스트를 꺼내 문자열로 돌려주는 함수
     container = soup.select_one("div#newsct_article")
     article = None
+
+    # container가 `<article>` 태그라면 그대로 본문 블록으로 사용
     if container and container.name == "article":
         article = container
     elif container:
         article = container.select_one("article#dic_area")
+    
+    # 위 코드로 못 찾으면 문서 전체에서 찾음
     if not article:
         article = soup.select_one("article#dic_area")
     if not article:
         return None
 
+    # 본문 블록 안에서 script, style, aside, figure, table, .media_end_copyright, .media_end_summary를 제거(`decompose`) -> 텍스트만 깔끔히 남기려는 전처리
     for tag in article.select(
         "script, style, aside, figure, table, .media_end_copyright, .media_end_summary"
     ):
         tag.decompose()
 
-    parts: list[str] = []
-    buffer: list[str] = []
+    parts: list[str] = [] # 최종 문단들을 모아둘 리스트
+    buffer: list[str] = [] # 연속된 텍스트 노드를 잠깐 모아두는 임시 공간
 
     def flush() -> None:
+        """`buffer`에 쌓은 조각들을 동백 하나로 합쳐 `text_collapse`로 정리한 뒤, 내용이 있으면 `parts`에 문단으로 추가"""
         if not buffer:
             return
         merged = text_collapse(" ".join(buffer))
         if merged:
             parts.append(merged)
-        buffer.clear()
+        buffer.clear() # buffer 비우기
 
     for node in article.children:
+        # `<article>` 바로 아래 자식 노드들을 순회
         if isinstance(node, NavigableString):
+            # 자식이 텍스트 노드라면 문자열로 바꿔 공백 정리 후 `buffer`에 추가
             text = text_collapse(str(node))
             if text:
                 buffer.append(text)
@@ -262,22 +280,28 @@ def extract_body(soup: BeautifulSoup) -> str | None:
 
     flush()
 
+    # 만약 하나도 못 만들었다면 텍스트가 전부 자식 태그 안쪽에 위치하는 것
     if not parts:
+        # `<articel>` 전체에서 텍스트만 빼냄
         raw_text = article.get_text(" ", strip=True)
         if not raw_text:
             return None
         return text_collapse(raw_text)
 
+    # 문단을 빈 줄(`\n\n`)로 구분해 하나의 큰 문자열로 합쳐 반환
     return "\n\n".join(parts)
 
 
 def extract_thumbnail(soup: BeautifulSoup) -> str | None:
+    """파싱된 HTML(BeautifulSoup 객체)에서 대표 이미지 URL(thumbnail)을 찾아 문자열로 반환"""
     img = soup.select_one("img#img1")
     if img:
         for attr in ("src", "data-src", "data-origin", "data-original"):
             value = img.get(attr)
             if value:
                 return value.strip()
+            
+    # 이미지를 못 찾았다면
     meta = soup.select_one("meta[property='og:image']")
     if meta and meta.get("content"):
         return meta["content"].strip() or None
@@ -285,24 +309,31 @@ def extract_thumbnail(soup: BeautifulSoup) -> str | None:
 
 
 def is_article_url(url: str) -> bool:
-    lowered = url.lower()
+    """주어진 URL이 기사 본문 페이지를 가리키는지 간단히 판별하는 함수"""
+    lowered = url.lower() # 소문자로 변경
+
+    # url 경로에 `/comment/` 존재하면 댓글 페이지일 확률이 높으므로 제외
     if "/comment/" in lowered:
         return False
     return "/article/" in lowered
 
 
 def extract_links(limit: int) -> list[str]:
+    """네이버 IT/과학 목록 페이지에서 기사 링크들을 최대 `limit`개 수집해 리스트로 반환"""
     try:
-        resp = session.get(NAVER_SECTION_URL, timeout=REQUEST_TIMEOUT)
+        resp = session.get(NAVER_SECTION_URL, timeout=REQUEST_TIMEOUT) # 목록 페이지 GET 요청
         resp.raise_for_status()
     except Exception as exc:
         raise RuntimeError(f"Failed to fetch listing page: {exc}") from exc
+    
+    # 응답 HTML을 `BeautifulSoup`으로 파싱, `lxml` 파서 사용
     soup = BeautifulSoup(resp.text, "lxml")
-    anchors: list[str] = []
+    anchors: list[str] = [] # 후보 링크 리스트 준비
     containers = soup.select("div.section_latest_article._CONTENT_LIST._PERSIST_META")
     if not containers:
         containers = soup.select("div.section_latest_article")
-    for block in containers:
+
+    for block in containers: # 찾은 containers를 하나씩 순회
         for anchor in block.select("div.sa_text a[href]"):
             href = anchor.get("href")
             if not href:
@@ -310,59 +341,94 @@ def extract_links(limit: int) -> list[str]:
             href = href.strip()
             if not href:
                 continue
+
+            # 프로토콜 상대 URL 처리: `//news.naver.com/...` 형태면 앞에 `https:`를 붙여 완전한 절대 URL을 만듦
             if href.startswith("//"):
                 href = f"https:{href}"
+            # 루트 상대 URL 처리: `/article/...`처럼 시작하면 목록 페이지 기준으로 절대 URL로 변환
             elif href.startswith("/"):
                 href = urljoin(NAVER_SECTION_URL, href)
+            
+            # 기사 본문이 아니면 스킵
             if not is_article_url(href):
                 continue
+            # 통과한 링크를 후보 리스트에 추가
             anchors.append(href)
+
     unique: list[str] = []
     seen: set[str] = set()
-    for link in anchors:
-        if link in seen:
+    for link in anchors: # 링크 후보들을 순서대로 보면서
+        if link in seen: # 이미 본 링크면 패스(중복 방지)
             continue
-        seen.add(link)
-        unique.append(link)
+        seen.add(link) # 처음 본 링크면 `seen`에 기록하고 
+        unique.append(link) # `unique` 결과에 추가
+
+        # 결과가 `limit` 개에 도달하면 조기 종료
         if len(unique) >= limit:
             break
-    return unique
+    return unique # 중복 없는 링크들 반환
 
 
 def scrape_article(url: str) -> dict | None:
+    """기사 페이지의 `url`을 받아서 필요한 정보를 추출해 dict로 반환"""
     try:
         resp = session.get(url, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
     except Exception as exc:
         print(f"[warn] failed to fetch article: {url} ({exc})", file=sys.stderr)
         return None
+    
+    # `BeautifulSoup`으로 파싱, `lxml` 파서 사용
     soup = BeautifulSoup(resp.text, "lxml")
+
+    # title이 들어있는 element를 찾음
     title_el = soup.select_one("h2#title_area span")
+    # 찾았으면 텍스트만 꺼내고 `sanitize_title`로 문자열 정리
     title = sanitize_title(title_el.get_text(strip=True) if title_el else "")
     if not title:
         print(f"[warn] missing title: {url}", file=sys.stderr)
         return None
+    
+    # author이 들어있는 element를 찾음
     author_el = soup.select_one("em.media_end_head_journalist_name")
+    # 찾았으면 텍스트만 꺼내오고 `text_collapse`로 문자열 정리
     author = text_collapse(author_el.get_text(strip=True)) if author_el else None
+
+    # 기사 발행 시각이 있는 element를 찾음
     date_el = soup.select_one("span.media_end_head_info_datestamp_time._ARTICLE_DATE_TIME")
+    # `data-date-time` 속성을 꺼내 `parse_article_datetime`으로 KST 타임존이 붙은 datetime으로 파싱
     published_kst = parse_article_datetime(date_el.get("data-date-time") if date_el else None)
+    # KST datetime을 UTC ISO 문자열로 변환
     published_utc = to_utc_iso(published_kst)
+    # 같은 KST datetime에서 한국 기준 날짜 버킷(`YYYY-MM-DD`)을 뽑음
     date_bucket = kst_bucket_date(published_kst)
+
     if not published_utc or not date_bucket:
         return None
+    
+    # thumbnail URL 추출
     thumbnail = extract_thumbnail(soup)
+    # 기사 본문 텍스트 추출
     body = extract_body(soup)
+
+    # 본문이 없거나 너무 짧으면 스킵
     if not body or len(body) < 150:
         return None
+    # 제목/본문에 blacklist keyword가 잇으면 스킵
     if not is_relevant(title, body):
         return None
+    # 규칙 기반 요약을 생성
     summary = summarize_text(body)
     if not summary:
         summary = "요약 없음"
+
+    # 원문 출처를 표시하는 element
     original_source_el = soup.select_one("span.media_end_linked_title_text")
     original_source = (
         text_collapse(original_source_el.get_text(strip=True)) if original_source_el else None
     )
+
+    # 최종 dict 구성
     record = {
         "id": sha1_hex(url),
         "source": original_source or SOURCE_NAME,
@@ -383,7 +449,10 @@ def scrape_article(url: str) -> dict | None:
 
 
 def take(iterable: Iterable[str], limit: int) -> list[str]:
+    """아무 iterable(반복 가능한 것)에서 앞쪽 최대 `limit` 개만 뽑아 리스트로 반환"""
     items: list[str] = []
+
+    # iterable을 순서대로 돌며 `items`에 추가, 길이가 `limit`에 도달하면 중단
     for item in iterable:
         items.append(item)
         if len(items) >= limit:
@@ -392,23 +461,26 @@ def take(iterable: Iterable[str], limit: int) -> list[str]:
 
 # --- [메인 루틴] ---
 def main() -> None:
-    # "이 프로그램이 어떤 옵션을 받는지”를 설명하는 최상위 파서(메뉴판) 를 만듦.
+    # 명령줄 인자를 처리할 파서 생성
     # description= 은 -h/--help로 도움말을 볼 때 맨 위에 나오는 설명 문구
     parser = argparse.ArgumentParser(description="Scrape Naver IT/과학 articles")
 
     # `--limit` 옵션으로 최대 몇 개를 처리할지 정함(default=20개)
     parser.add_argument("--limit", type=int, default=20, help="Number of articles to process")
 
-    #  사용자가 터미널에 입력한 옵션을 읽어와서 `args`에 담음
+    #  사용자가 터미널에 입력한 옵션을 파싱해(읽어와) `args`에 담음
     args = parser.parse_args()
 
     try:
+        # 목록 페이지에서 기사 링크 수집
         links = extract_links(limit=max(args.limit, 1))
     except Exception as exc:
         print(f"[error] {exc}", file=sys.stderr)
         sys.exit(1)
 
+    # 실제로 출력에 성공한 기사 개수를 셀 counter
     count = 0
+    # 방금 받은 링크 목록에서 앞쪽 최대 `args.limit`개만 순회
     for link in take(links, args.limit):
         doc = scrape_article(link)
         if not doc:
@@ -416,11 +488,12 @@ def main() -> None:
         if not is_relevant(doc.get("title"), doc.get("summary"), doc.get("body")):
             # 제목/요약 텍스트에 블랙리스트 키워드가 있으면 건너뜀
             continue
+        # 최종 record를 JSON 문자열로 직렬화해 표준 출력으로 한 줄 출력(JSON Lines 형식)
         print(json.dumps(doc, ensure_ascii=False))
         count += 1
     if count == 0:
         print("[]", file=sys.stderr)
 
-
+# 이 파일을 직접 실행할 때만 `main()` 호출
 if __name__ == "__main__":
     main()
