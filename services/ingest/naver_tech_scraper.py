@@ -15,14 +15,17 @@ from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import requests
-from bs4 import BeautifulSoup, NavigableString
 from requests.adapters import HTTPAdapter, Retry
+from bs4 import BeautifulSoup, NavigableString
+# BeautifulSoup은 여러 파서를 지원하지만 여기서는 'lxml'을 사용
 
+# --- [상수 설정] ---
 NAVER_SECTION_URL = "https://news.naver.com/section/105"
 SOURCE_NAME = "네이버 IT/과학"
 KST = ZoneInfo("Asia/Seoul")
 REQUEST_TIMEOUT = 20
 
+# --- [HTTP 세션 준비] ---
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
 session.mount("https://", HTTPAdapter(max_retries=retries))
@@ -38,6 +41,7 @@ session.headers.update(
     }
 )
 
+# --- [카테고리 규칙: 기본값 + 제목 키워드 덮어쓰기] ---
 CATEGORY_DEFAULT = "IT/과학"
 CATEGORY_RULES = [
     (re.compile(r"(AI|인공지능|GPT|LLM|딥러닝)", re.I), "AI"),
@@ -45,7 +49,7 @@ CATEGORY_RULES = [
     (re.compile(r"(보안|해킹|유출|취약|랜섬)", re.I), "보안"),
     (re.compile(r"(반도체|칩|파운드리|퀀텀|엔비디아|양자)", re.I), "반도체"),
     (re.compile(r"(로봇|로보틱스)", re.I), "로봇"),
-    (re.compile(r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제|안약|줄기세포|장|척수|미트콘드리아|암|간|근육|고혈압|수면|DNA|세포|머리카락|여드름|알츠하이머|항생제|바이러스|박테리아|골|알테오젠|셀트리온|팬젠|임상|의약|처방|엔서퀴다)",re.I),"생명과학"),
+    (re.compile(r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제|안약|줄기세포|장기|장염|질환|척수|미트콘드리아|암|간|근육|고혈압|수면|DNA|세포|머리카락|여드름|알츠하이머|항생제|바이러스|박테리아|골|알테오젠|셀트리온|팬젠|임상|의약|처방)", re.I), "생명과학"),
     (re.compile(r"(배터리|전지|탑머티리얼|양극재)", re.I), "배터리"),
 ]
 
@@ -57,7 +61,7 @@ BLACKLIST_KEYWORDS = {
     "LCK", "가족 친화 경영", "전산시스템", "다이소", "젠지", "박카스", 
     "폭발한", "무서워", "스크래치", "창업자", "붉은사막", "RPG", "서브컬쳐",
     "플로깅", "헌혈", "화백", "티맵", "위약금", "트럼프", "대금", "사생활",
-    "영입", "버스킹", "뿔난", "화난", "사의"
+    "영입", "버스킹", "뿔난", "화난", "사의", "워라벨"
 }
 
 SENTENCE_ENDINGS = ["다.", "다?", "다!", ".", "!", "?", "…"]
