@@ -31,16 +31,11 @@ pip install -r requirement.txt
 
 ➡️ 최종 결과를 “한 기사 = 한 줄 JSON” 으로 출력
 
-### Daily (한국경제 IT, DataNet)
+### Daily (네이버 IT/과학, DataNet)
 
 ```wsl
 cd services/ingest
 python naver_tech_scraper.py --limit 5 > naver_tech_sample.json
-```
-
-```wsl
-cd services/ingest
-python hankyung_rss_scraper.py --limit 5 > hankyung_rss_sample.json
 ```
 
 ```wsl
@@ -60,7 +55,7 @@ python datanet_scraper.py --limit 5 > datanet_sample.json
 python services/ingest/run_ingest.py daily --limit 30
 ```
 
-- 한국경제 IT + DataNet 스크레이퍼를 순차 실행해 통합 결과를 `daily_articles`에 upsert 합니다. `--dry-run` 옵션으로 적재 없이 결과만 확인할 수 있습니다.
+- 네이버 IT/과학 + DataNet 스크레이퍼를 순차 실행해 통합 결과를 `daily_articles`에 upsert 합니다. `--dry-run` 옵션으로 적재 없이 결과만 확인할 수 있습니다.
 
 ### Weekly (scienceON)
 
