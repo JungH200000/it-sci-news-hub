@@ -186,6 +186,7 @@ def ingest_daily(limit: int, dry_run: bool) -> None: # `limit: 기사 몇 개 �
 
     # scraper 파일 순회
     for script in (
+        "services/ingest/naver_tech_scraper.py",
         "services/ingest/hankyung_rss_scraper.py",
         "services/ingest/datanet_scraper.py",
     ):
@@ -262,8 +263,8 @@ def main() -> None:
     `add_argument`: ‘daily 전용 옵션’을 추가할 때 쓰는 핸들
         `--limit`: 몇 개의 기사를 가져올 지 정하는 옵션
         `--dry-run`: DB에 저장하지 말고 화면에 출력하라는 옵션 """
-    daily_parser = subparsers.add_parser("daily", help="일간 RSS 기사 수집")
-    daily_parser.add_argument("--limit", type=int, default=30, help="가져올 RSS 항목 수")
+    daily_parser = subparsers.add_parser("daily", help="일간 기사 수집")
+    daily_parser.add_argument("--limit", type=int, default=30, help="가져올 기사 항목 수")
     daily_parser.add_argument("--dry-run", action="store_true", help="적재하지 않고 결과만 출력")
 
     weekly_parser = subparsers.add_parser("weekly", help="주간 scienceON 기사 수집")

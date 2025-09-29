@@ -1,0 +1,345 @@
+# naver_tech_scraper.py
+"""네이버 IT/과학 섹션을 스크래핑해 Supabase 적재용 JSON Lines를 생성하는 스크립트."""
+# Fields: id, source, title, link, author, published_at(UTC ISO), date(KST), thumbnail, summary, body, category
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import sys
+from datetime import datetime, timezone
+from typing import Iterable
+from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
+
+import requests
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter, Retry
+
+NAVER_SECTION_URL = "https://news.naver.com/section/105"
+SOURCE_NAME = "네이버 IT/과학"
+KST = ZoneInfo("Asia/Seoul")
+REQUEST_TIMEOUT = 20
+
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+session.mount("https://", HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
+session.headers.update(
+    {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+)
+
+CATEGORY_DEFAULT = "IT/과학"
+CATEGORY_RULES = [
+    (re.compile(r"(AI|인공지능|GPT|LLM|딥러닝)", re.I), "AI"),
+    (re.compile(r"(보안|해킹|유출|취약|랜섬)", re.I), "보안"),
+    (re.compile(r"(반도체|칩|파운드리|퀀텀|엔비디아|양자)", re.I), "반도체"),
+    (re.compile(r"(로봇|로보틱스)", re.I), "로봇"),
+    (
+        re.compile(
+            r"(생명|제약|백신|유전체|미생물|바이오|신약|항암제|안약|줄기세포|장|척수|미트콘드리아|암|간|근육|고혈압|수면|DNA|세포|머리카락|여드름|알츠하이머|항생제|바이러스|박테리아|골|알테오젠|셀트리온|팬젠|임상|의약|처방)",
+            re.I,
+        ),
+        "생명과학",
+    ),
+    (re.compile(r"(배터리|전지|탑머티리얼)", re.I), "배터리"),
+]
+
+BLACKLIST_KEYWORDS = {
+    "부동산", "아파트", "채권", "주식", "환율", "외환", "물가", "금리",
+    "취업", "채용", "노동", "고용", "인사", "임금", "연봉",
+    "규제", "과징금", "제재", "검찰", "경찰", "사건", "소송", "재판",
+    "선거", "정치", "외교", "안보", "헌신", "관세", "영양제", "외래환자",
+    "LCK", "가족 친화 경영", "전산시스템", "다이소", "젠지", "박카스", 
+    "폭발한", "무서워", "스크래치", "창업자", "붉은사막", "RPG", "서브컬쳐",
+    "플로깅", "헌혈", "화백", "티맵", "위약금", "트럼프", "대금", "사생활",
+    "영입", "버스킹", "뿔난", "화난", "사의"
+}
+
+SENTENCE_ENDINGS = ["다.", "다?", "다!", ".", "!", "?", "…"]
+
+
+def sanitize_title(value: str | None) -> str:
+    if not value:
+        return ""
+    cleaned = value.replace("\\", "").replace('"', "")
+    return cleaned.strip()
+
+
+def categorize(title: str) -> str:
+    cat = CATEGORY_DEFAULT
+    if not title:
+        return cat
+    for pattern, label in CATEGORY_RULES:
+        if pattern.search(title):
+            return label
+    return cat
+
+
+def _normalize(text: str | None) -> str:
+    if not text:
+        return ""
+    return text.lower()
+
+
+def is_relevant(*texts: str | None) -> bool:
+    for raw in texts:
+        normalized = _normalize(raw)
+        if not normalized:
+            continue
+        for keyword in BLACKLIST_KEYWORDS:
+            if keyword in normalized:
+                return False
+    return True
+
+
+def text_collapse(value: str) -> str:
+    return re.sub(r"[\s\u00A0]+", " ", value).strip()
+
+
+def ensure_sentence_boundary(text: str, truncated: bool = False) -> str:
+    text = (text or "").strip()
+    if not text:
+        return text
+    end_positions: list[int] = []
+    for ending in SENTENCE_ENDINGS:
+        idx = text.rfind(ending)
+        if idx != -1:
+            end_positions.append(idx + len(ending))
+    if end_positions:
+        return text[: max(end_positions)].strip()
+    if truncated:
+        return text.rstrip(".") + "…"
+    return text
+
+
+def sha1_hex(value: str) -> str:
+    return hashlib.sha1(value.encode("utf-8")).hexdigest()
+
+
+def summarize_text(text: str, max_sentences: int = 3, max_chars: int = 180) -> str | None:
+    if not text:
+        return None
+    normalized = text.replace("\n", " ")
+    candidates = re.split(r"(?<=[.!?\u3002\uFF01\uFF1F])\s+", normalized)
+    sentences: list[str] = []
+    for cand in candidates:
+        cleaned = text_collapse(cand)
+        if cleaned:
+            sentences.append(cleaned)
+        if len(sentences) >= max_sentences:
+            break
+    if not sentences:
+        return None
+    selected: list[str] = []
+    truncated = False
+    for sent in sentences:
+        candidate = " ".join(selected + [sent]) if selected else sent
+        if len(candidate) > max_chars:
+            truncated = True
+            break
+        selected.append(sent)
+    if not selected:
+        truncated = True
+        summary = sentences[0][:max_chars].strip()
+    else:
+        summary = " ".join(selected).strip()
+        if len(summary) > max_chars:
+            truncated = True
+            summary = summary[:max_chars].strip()
+    summary = ensure_sentence_boundary(summary, truncated)
+    if not summary:
+        fallback = ensure_sentence_boundary(sentences[0][:max_chars].strip(), True)
+        return fallback or None
+    return summary
+
+
+def parse_article_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")
+        return dt.replace(tzinfo=KST)
+    except Exception:
+        return None
+
+
+def to_utc_iso(dt: datetime | None) -> str | None:
+    if not dt:
+        return None
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def kst_bucket_date(dt: datetime | None) -> str | None:
+    if not dt:
+        return None
+    return dt.date().isoformat()
+
+
+def extract_body(article: BeautifulSoup) -> str | None:
+    container = article.select_one("article#dic_area")
+    if not container:
+        return None
+    for tag in container.select("script, style, aside"):
+        tag.decompose()
+    raw_text = container.get_text(" ", strip=True)
+    if not raw_text:
+        return None
+    return text_collapse(raw_text)
+
+
+def extract_thumbnail(soup: BeautifulSoup) -> str | None:
+    img = soup.select_one("img#img1")
+    if img:
+        for attr in ("src", "data-src", "data-origin", "data-original"):
+            value = img.get(attr)
+            if value:
+                return value.strip()
+    meta = soup.select_one("meta[property='og:image']")
+    if meta and meta.get("content"):
+        return meta["content"].strip() or None
+    return None
+
+
+def is_article_url(url: str) -> bool:
+    lowered = url.lower()
+    if "/comment/" in lowered:
+        return False
+    return "/article/" in lowered
+
+
+def extract_links(limit: int) -> list[str]:
+    try:
+        resp = session.get(NAVER_SECTION_URL, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except Exception as exc:
+        raise RuntimeError(f"Failed to fetch listing page: {exc}") from exc
+    soup = BeautifulSoup(resp.text, "lxml")
+    anchors: list[str] = []
+    containers = soup.select("div.section_latest_article._CONTENT_LIST._PERSIST_META")
+    if not containers:
+        containers = soup.select("div.section_latest_article")
+    for block in containers:
+        for anchor in block.select("div.sa_text a[href]"):
+            href = anchor.get("href")
+            if not href:
+                continue
+            href = href.strip()
+            if not href:
+                continue
+            if href.startswith("//"):
+                href = f"https:{href}"
+            elif href.startswith("/"):
+                href = urljoin(NAVER_SECTION_URL, href)
+            if not is_article_url(href):
+                continue
+            anchors.append(href)
+    unique: list[str] = []
+    seen: set[str] = set()
+    for link in anchors:
+        if link in seen:
+            continue
+        seen.add(link)
+        unique.append(link)
+        if len(unique) >= limit:
+            break
+    return unique
+
+
+def scrape_article(url: str) -> dict | None:
+    try:
+        resp = session.get(url, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except Exception as exc:
+        print(f"[warn] failed to fetch article: {url} ({exc})", file=sys.stderr)
+        return None
+    soup = BeautifulSoup(resp.text, "lxml")
+    title_el = soup.select_one("h2#title_area span")
+    title = sanitize_title(title_el.get_text(strip=True) if title_el else "")
+    if not title:
+        print(f"[warn] missing title: {url}", file=sys.stderr)
+        return None
+    author_el = soup.select_one("em.media_end_head_journalist_name")
+    author = text_collapse(author_el.get_text(strip=True)) if author_el else None
+    date_el = soup.select_one("span.media_end_head_info_datestamp_time._ARTICLE_DATE_TIME")
+    published_kst = parse_article_datetime(date_el.get("data-date-time") if date_el else None)
+    published_utc = to_utc_iso(published_kst)
+    date_bucket = kst_bucket_date(published_kst)
+    if not published_utc or not date_bucket:
+        return None
+    thumbnail = extract_thumbnail(soup)
+    body = extract_body(soup)
+    if not body or len(body) < 150:
+        return None
+    if not is_relevant(title, body):
+        return None
+    summary = summarize_text(body)
+    if not summary:
+        summary = "요약 없음"
+    original_source_el = soup.select_one("span.media_end_linked_title_text")
+    original_source = (
+        text_collapse(original_source_el.get_text(strip=True)) if original_source_el else None
+    )
+    record = {
+        "id": sha1_hex(url),
+        "source": original_source or SOURCE_NAME,
+        "distributor": SOURCE_NAME,
+        "title": title,
+        "link": url,
+        "author": author,
+        "published_at": published_utc,
+        "date": date_bucket,
+        "thumbnail": thumbnail,
+        "summary": summary,
+        "body": body,
+        "category": categorize(title),
+    }
+    if original_source:
+        record["original_source"] = original_source
+    return record
+
+
+def take(iterable: Iterable[str], limit: int) -> list[str]:
+    items: list[str] = []
+    for item in iterable:
+        items.append(item)
+        if len(items) >= limit:
+            break
+    return items
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Scrape Naver IT/과학 articles")
+    parser.add_argument("--limit", type=int, default=20, help="Number of articles to process")
+    args = parser.parse_args()
+
+    try:
+        links = extract_links(limit=max(args.limit, 1))
+    except Exception as exc:
+        print(f"[error] {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    count = 0
+    for link in take(links, args.limit):
+        doc = scrape_article(link)
+        if not doc:
+            continue
+        if not is_relevant(doc.get("title"), doc.get("summary"), doc.get("body")):
+            continue
+        print(json.dumps(doc, ensure_ascii=False))
+        count += 1
+    if count == 0:
+        print("[]", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
