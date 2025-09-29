@@ -16,8 +16,16 @@ export default function Home() {
   const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  const { items: dailySidebarItems, loading: dailySidebarLoading, error: dailySidebarError } = useDailySidebar();
-  const { items: weeklySidebarItems, loading: weeklySidebarLoading, error: weeklySidebarError } = useWeeklySidebar();
+  const {
+    items: dailySidebarItems,
+    loading: dailySidebarLoading,
+    error: dailySidebarError,
+  } = useDailySidebar();
+  const {
+    items: weeklySidebarItems,
+    loading: weeklySidebarLoading,
+    error: weeklySidebarError,
+  } = useWeeklySidebar();
 
   useEffect(() => {
     if (!selectedDate && dailySidebarItems.length) {
@@ -157,6 +165,7 @@ export default function Home() {
 
   const handleSearchSubmit = async (event) => {
     event.preventDefault();
+    // searchQuery: 입력창 값
     const trimmed = searchQuery.trim();
     if (!trimmed) {
       setSearchResults({ daily: [], weekly: [] });
@@ -243,19 +252,26 @@ export default function Home() {
   const onLoadMore = activeTab === 'daily' ? handleDailyLoadMore : handleWeeklyLoadMore;
 
   const searchHasResults = useMemo(() => {
-    return (searchResults.daily.length + searchResults.weekly.length) > 0;
+    return searchResults.daily.length + searchResults.weekly.length > 0;
   }, [searchResults]);
 
   return (
     <main>
       <header className="header">
         <div className="header__brand" aria-label="IT/Science News Hub">
-          <div className="header__brand-icon" aria-hidden="true">Δ</div>
+          <div className="header__brand-icon" aria-hidden="true">
+            Δ
+          </div>
           <span>IT/Science News Hub</span>
         </div>
 
         <div className="tabs">
-          <div className="tablist" role="tablist" aria-label="뉴스 탭 선택" onKeyDown={handleTabKeyDown}>
+          <div
+            className="tablist"
+            role="tablist"
+            aria-label="뉴스 탭 선택"
+            onKeyDown={handleTabKeyDown}
+          >
             {TABS.map((tab, index) => (
               <button
                 key={tab.id}
@@ -344,13 +360,11 @@ export default function Home() {
             >
               {activeLoadingMore ? 'Loading…' : 'Load More'}
             </button>
-          ) : (
-            !activeLoading && activeArticles.length ? (
-              <div className="status-line" role="status">
-                No more results
-              </div>
-            ) : null
-          )}
+          ) : !activeLoading && activeArticles.length ? (
+            <div className="status-line" role="status">
+              No more results
+            </div>
+          ) : null}
         </section>
 
         <aside
@@ -456,7 +470,9 @@ function SidebarList({ items, loading, error, selected, onSelect, isCompact, isO
   if (error) {
     return (
       <div className="sidebar__collapsible">
-        <p className="alert" role="status">{error}</p>
+        <p className="alert" role="status">
+          {error}
+        </p>
       </div>
     );
   }
@@ -525,7 +541,14 @@ function SidebarList({ items, loading, error, selected, onSelect, isCompact, isO
   );
 }
 
-function SearchSection({ heading, articles, visibleCount, onLoadMore, registerRef, isWeekly = false }) {
+function SearchSection({
+  heading,
+  articles,
+  visibleCount,
+  onLoadMore,
+  registerRef,
+  isWeekly = false,
+}) {
   const visibleItems = articles.slice(0, visibleCount);
   const hasMore = visibleCount < articles.length;
 
@@ -546,13 +569,11 @@ function SearchSection({ heading, articles, visibleCount, onLoadMore, registerRe
         <button type="button" className="load-more" onClick={onLoadMore}>
           Load More
         </button>
-      ) : (
-        visibleItems.length ? (
-          <div className="status-line" role="status">
-            No more results
-          </div>
-        ) : null
-      )}
+      ) : visibleItems.length ? (
+        <div className="status-line" role="status">
+          No more results
+        </div>
+      ) : null}
     </section>
   );
 }

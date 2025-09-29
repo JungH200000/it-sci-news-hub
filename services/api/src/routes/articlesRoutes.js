@@ -12,7 +12,10 @@ import {
 
 const router = Router();
 
+/* ===== 세부 경로 정의 ===== */
+// `articles/daily` 경로로 GET 요청이 들어오면 `handleDailyArticles` 실행
 router.get('/articles/daily', handleDailyArticles);
+
 router.get('/articles/weekly', handleWeeklyArticles);
 router.get('/articles/sidebar/daily', handleDailySidebar);
 router.get('/articles/sidebar/weekly', handleWeeklySidebar);

@@ -3,8 +3,10 @@
 import { Router } from 'express';
 import articlesRoutes from './articlesRoutes.js';
 
+/* ===== 라우터 묶음 ===== */
 const api = Router();
 
-api.use('/', articlesRoutes);
+// `/(루트)` 경로 밑에 `articlesRoutes`에서 정의한 경로들을 붙여라.
+api.use('/', articlesRoutes); // 여전히 `/articles/daily` 로 동작
 
 export default api;

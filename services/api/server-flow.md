@@ -1,4 +1,4 @@
-# 서버 데이터 흐름 가이드
+# 서버 데이터 흐름 가이드 - AI 정리
 
 이 문서는 `services/api` 백엔드가 어떻게 DB에서 뉴스를 읽어와 Next.js 프런트엔드에 전달하는지, 파일과 코드 조각별로 단계적으로 설명합니다. 초보자도 한 번에 이해할 수 있도록 흐름도를 따라가며 읽어보세요.
 
@@ -19,13 +19,13 @@
 
 ## 1. 공통 기반 살펴보기
 
-| 단계 | 설명 | 관련 파일 |
-| --- | --- | --- |
-| 설정 로딩 | `.env`와 시스템 환경 변수를 읽어 숫자/불린 값으로 정리합니다. | `services/api/src/config.js:28` |
-| DB 풀 | PostgreSQL 풀을 만들고 `query()`/`getClient()`를 제공합니다. | `services/api/src/db/pool.js:7` |
-| 앱 생성 | CORS, Helmet, 압축, 속도 제한, 로깅, OpenAPI 문서 등을 설정합니다. | `services/api/src/app.js:46` |
-| 에러 처리 | 404와 기타 에러를 JSON 형태로 응답합니다. | `services/api/src/middleware/errorHandler.js:5` |
-| 서버 실행 | `createApp()`을 호출해 지정된 포트(기본 4000)에서 리스닝합니다. | `services/api/src/server.js:7` |
+| 단계      | 설명                                                               | 관련 파일                                       |
+| --------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| 설정 로딩 | `.env`와 시스템 환경 변수를 읽어 숫자/불린 값으로 정리합니다.      | `services/api/src/config.js:28`                 |
+| DB 풀     | PostgreSQL 풀을 만들고 `query()`/`getClient()`를 제공합니다.       | `services/api/src/db/pool.js:7`                 |
+| 앱 생성   | CORS, Helmet, 압축, 속도 제한, 로깅, OpenAPI 문서 등을 설정합니다. | `services/api/src/app.js:46`                    |
+| 에러 처리 | 404와 기타 에러를 JSON 형태로 응답합니다.                          | `services/api/src/middleware/errorHandler.js:5` |
+| 서버 실행 | `createApp()`을 호출해 지정된 포트(기본 4000)에서 리스닝합니다.    | `services/api/src/server.js:7`                  |
 
 > 이 공통 단계는 모든 API 요청이 거치는 기본 틀입니다.
 
@@ -84,6 +84,7 @@ DB에 저장된 `public.daily_articles` 데이터를 화면 카드로 보여줄 
 ## 4. 사이드바 최신 날짜·주차 흐름 (`GET /api/articles/sidebar/*`)
 
 ### 4-1. 일간 날짜 목록
+
 1. **DB** → `daily_articles`에서 최근 날짜 14개를 중복 없이 조회.
    - 코드: `services/api/src/repositories/articlesRepository.js:107` (`fetchDailyDates`)
 2. **서비스** → 단순히 결과를 전달.
@@ -96,6 +97,7 @@ DB에 저장된 `public.daily_articles` 데이터를 화면 카드로 보여줄 
    - 코드: `apps/web/hooks/useDailySidebar.js:24`
 
 ### 4-2. 주간 주차 목록
+
 1. **DB** → `weekly_articles`에서 최근 주차 8개 추출.
    - 코드: `services/api/src/repositories/articlesRepository.js:118` (`fetchWeeklyWeeks`)
 2. **서비스** → 결과 전달.

@@ -12,4 +12,8 @@ const pool = new Pool({
 });
 
 export const query = (text, params) => pool.query(text, params);
+// `pool.query`: PostgreSQL 서버에 SQL을 날리고, 그 결과를 받아오는 함수
+// text = SQL 문장
+// params = 자리표시자($1, $2, $3, ...)
+
 export const getClient = () => pool.connect();

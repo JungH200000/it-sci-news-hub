@@ -11,6 +11,8 @@ import {
 
 export async function handleDailyArticles(req, res, next) {
   try {
+    // req.query : 클라이언트가 보낸 URL query parameter
+    // ex: /api/articles/daily?date=2025-09-26&page=1&size=10
     const data = await getDailyArticles(req.query);
     res.json({ data });
   } catch (error) {
@@ -53,3 +55,4 @@ export async function handleWeeklySidebar(req, res, next) {
     next(error);
   }
 }
+// 클라이언트로부터 받은 request query를 `getDailyArticles`로 넘기고 받은 값들을 JSON 형태로 출력

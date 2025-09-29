@@ -15,16 +15,22 @@ import { parsePagination } from '../utils/pagination.js';
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const WEEK_REGEX = /^\d{4}-\d{2}-[1-5]$/;
 
+// 하루치 기사 목록을 가져오는 컨트롤러 함수
+// params 안에는 request query들이 들어올 것
 export async function getDailyArticles(params) {
   const { date, category: rawCategory, page, size } = params;
   const category = rawCategory?.trim() || null;
 
+  // JS가 이해할 수 있는 date이거나 date가 YYYY-MM-DD 형태인지 확인
   if (!Date.parse(date) || !DATE_REGEX.test(date)) {
     throw badRequest('Query parameter "date" must be YYYY-MM-DD.');
   }
 
+  // page와 size를 안전하게 숫자로 변경
   const pagination = parsePagination({ page, size }, config.pagination);
 
+  // DB에서 실제 기사 목록(item)과 전체 개수(total)를 가져옴
+  // offset과 limit은 pagenation을 위해 사용
   const { items, total } = await fetchDailyArticles({
     date,
     category,
@@ -33,13 +39,13 @@ export async function getDailyArticles(params) {
   });
 
   return {
-    items,
+    items, // 기사 목록
     page: pagination.page,
     size: pagination.size,
     total,
     hasMore: pagination.offset + items.length < total,
     filters: {
-      date,
+      date, // YYYY-MM-DD
       category,
     },
   };
@@ -84,9 +90,10 @@ export async function getSearchResults(params) {
 
   const maxLimit = config.search.maxLimit;
   const requestedLimit = Number.parseInt(limit, 10);
-  const effectiveLimit = Number.isFinite(requestedLimit) && requestedLimit > 0
-    ? Math.min(requestedLimit, maxLimit)
-    : config.search.defaultLimit;
+  const effectiveLimit =
+    Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, maxLimit)
+      : config.search.defaultLimit;
 
   const rows = await searchUnified({
     q: trimmed,

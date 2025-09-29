@@ -4,9 +4,9 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 
-const app = createApp();
+const app = createApp(); // Express 앱 생성하고,
 
+// 여기서 port 배정하여 서버를 띄움
 app.listen(config.port, () => {
-  // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${config.port}`);
 });
