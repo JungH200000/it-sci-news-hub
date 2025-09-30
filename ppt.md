@@ -28,16 +28,13 @@
 
 - **제목**: `전체 구조`
 
-- **내용**: 수집(Ingest) → 저장(DB) → API → UI(웹) 흐름
-- **핵심 문구**:
-  - 수집(Ingest) → 저장(DB) → API → UI
-  - 자동화된 데이터 흐름으로 안정적 제공
+- **내용**: 수집(Ingest), 저장(DB), API, UI(웹) 흐름
 
 - **비주얼**: 블록 다이어그램
-  - frontend : next.js기반 반응형 웹 인터페이스)
-  - backend : express api 서버 - daily와 weekly로 구분
-  - database : supabase postgreSQL
-  - automation : github actions
+  - Frontend : Next.js 기반 반응형 웹 인터페이스
+  - Backend : Express API 서버 - daily와 weekly로 구분
+  - Database : Supabase PostgreSQL
+  - Automation - Github Actions : 자동화
   - 동작:
     - 스크래핑 후 저장: Python/GitHub Actions → Supabase
     - 카드 뉴스
