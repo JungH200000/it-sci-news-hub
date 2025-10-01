@@ -91,4 +91,3 @@ python services/ingest/run_ingest.py
 
 - Supabase 연결 정보는 환경 변수로만 관리하고 저장소에 커밋하지 않습니다.
 - GitHub Actions 등 자동화 워크플로를 사용할 경우, Python 스크립트 실행 주기와 API rate limit을 고려하세요.
-- 배포 대상(예: Vercel, Railway, Supabase)을 선정했다면 README에 추가 문서를 연결해 주세요.
