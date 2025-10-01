@@ -74,6 +74,7 @@
 
 ## Phase 7. 자동화/배포/관측성
 
+- 참고: [phase 7 참고](./phase7.md)
 - [O] 스케줄러 **옵션 확정**
   - **GitHub Actions(권장)**: KST 06:00/월 08:00 → **UTC 21:00/23:00** 매핑 _(ref: PRD-10.3)_
   - (대안) Supabase Scheduler
